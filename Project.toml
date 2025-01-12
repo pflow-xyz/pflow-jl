@@ -1,0 +1,13 @@
+name = "pflow"
+uuid = "b8798a89-cbc6-4f98-8c2b-e997259ae71b"
+authors = ["stackdump <myork@stackdump.com>"]
+version = "0.1.0"
+
+[deps]
+Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+LabelledArrays = "2ee39098-c373-598a-b85f-a56591580800"
+Petri = "4259d249-1051-49fa-8328-3f8ab9391c33"
+
+[compat]
+Accessors = "0.1.39"
