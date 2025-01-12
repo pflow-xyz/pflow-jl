@@ -44,15 +44,17 @@ function Pflow()
     Pflow("petriNet", "v0", Dict(), Dict(), [])
 end
 
-function place!(net::Pflow, label::String, offset::Int, initial::Union{Nothing,Int}, capacity::Union{Nothing,Int}, x::Int, y::Int)
+function place!(net::Pflow, label::String; offset::Union{Nothing,Int}=nothing, initial::Union{Nothing,Int}=nothing, capacity::Union{Nothing,Int}=nothing, x::Int=0, y::Int=0)
+    offset = isnothing(offset) ? length(net.transitions) : offset
     net.places[label] = Place(label, offset, initial, capacity, x, y)
 end
 
-function transition!(net::Pflow, label::String, offset::Int, role::String, x::Int, y::Int)
+function transition!(net::Pflow, label::String; offset::Union{Nothing,Int}=nothing, role::String="default", x::Int=0, y::Int=0)
+    offset = isnothing(offset) ? length(net.transitions) : offset
     net.transitions[label] = Transition(label, offset, role, x, y)
 end
 
-function arc!(net::Pflow, source::String, target::String, weight::Union{Nothing,Int})
+function arc!(net::Pflow; source::String="", target::String="", weight::Union{Nothing,Int}=1)
     # set consume if source is a place and target is a transition
     consume = haskey(net.places, source) && haskey(net.transitions, target)
     # set produce if source is a transition and target is a place
@@ -61,6 +63,7 @@ function arc!(net::Pflow, source::String, target::String, weight::Union{Nothing,
     read = false
     push!(net.arcs, Arrow(source, target, weight, consume, produce, inhibit, read))
 end
+
 
 function guard!(net::Pflow, source::String, target::String, weight::Union{Nothing,Int})
     # set consume if source is a place and target is a transition
@@ -189,8 +192,8 @@ function Display(model::Pflow)
 end
 
 function new_svg_image(d::Display, width::Union{Int,Nothing}=nothing, height::Union{Int,Nothing}=nothing)
-    w = width !== nothing ? width : 400
-    h = height !== nothing ? height : 400
+    w = isnothing(width) ? 400 : width
+    h = isnothing(height) ? 400 : height
     write(d.buffer, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" viewBox=\"0 0 $w $h\">")
     rect(d, 0, 0, w, h, "fill=\"#ffffff\"") # add white background
     write_defs(d)
@@ -199,17 +202,16 @@ end
 function write_defs(d::Display)
     write(
         d.buffer,
-        """
-            <defs>
-                <marker id="markerArrow1" markerWidth="23" markerHeight="13" refX="31" refY="6" orient="auto">
-                    <rect width="28" height="3" fill="white" stroke="white" x="3" y="5"/>
-                    <path d="M2,2 L2,11 L10,6 L2,2"/>
-                </marker>
-                <marker id="markerInhibit1" markerWidth="23" markerHeight="13" refX="31" refY="6" orient="auto">
-                    <rect width="28" height="3" fill="white" stroke="white" x="3" y="5"/>
-                    <circle cx="5" cy="6.5" r="4"/>
-                </marker>
-            </defs>
+        """<defs>
+               <marker id="markerArrow1" markerWidth="23" markerHeight="13" refX="31" refY="6" orient="auto">
+                   <rect width="28" height="3" fill="white" stroke="white" x="3" y="5"/>
+                   <path d="M2,2 L2,11 L10,6 L2,2"/>
+               </marker>
+               <marker id="markerInhibit1" markerWidth="23" markerHeight="13" refX="31" refY="6" orient="auto">
+                   <rect width="28" height="3" fill="white" stroke="white" x="3" y="5"/>
+                   <circle cx="5" cy="6.5" r="4"/>
+               </marker>
+           </defs>
         """
     )
 end

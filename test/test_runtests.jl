@@ -1,46 +1,43 @@
 using Test
 using Petri
-using pflow: Pflow, place!, arc!, guard!, transition!, initial_state, to_json, to_svg, to_html, to_model, default_rates, set_rates
+using pflow: Pflow, place!, arc!, guard!, transition!, initial_state, to_json, to_svg, to_html, to_model, set_state, set_rates
 
 # Define a simple Petri net model to solve a knapsack problem
 # Try the interactive version:
 # https://pflow.dev/?cid=zb2rhZVDEDCs4V88q8SG93tLd1jqRhwQbgazwmSe8py49S5tZ
 function knapsack!(m::Pflow)
     # Add places
-    #        label,  id, initial, capacity, x,   y
-    place!(m, "item0",    0, 1,  nothing, 351, 140)
-    place!(m, "item1",    1, 1,  nothing, 353, 265)
-    place!(m, "item2",    2, 1,  nothing, 351, 417)
-    place!(m, "item3",    3, 1,  nothing, 350, 543)
-    place!(m, "weight",   4, 0,  nothing, 880, 320)
-    place!(m, "value",    5, 0,  nothing, 765, 145)
-    place!(m, "capacity", 6, 15, nothing, 730, 541)
+    place!(m, "item0", initial=1, x=351, y=140)
+    place!(m, "item1", initial=1, x=353, y=265)
+    place!(m, "item2", initial=1, x=351, y=417)
+    place!(m, "item3", initial=1, x=350, y=543)
+    place!(m, "weight", initial=0, x=880, y=320)
+    place!(m, "value", initial=0, x=765, y=145)
+    place!(m, "capacity", initial=15, x=730, y=541)
 
     # Add transitions
-    #              label,  id,  role,   x,   y
-    transition!(m, "txn0", 0, "role", 465, 139)
-    transition!(m, "txn1", 1, "role", 466, 264)
-    transition!(m, "txn2", 2, "role", 462, 418)
-    transition!(m, "txn3", 3, "role", 464, 542)
+    transition!(m, "txn0", x=465, y=139)
+    transition!(m, "txn1", x=466, y=264)
+    transition!(m, "txn2", x=462, y=418)
+    transition!(m, "txn3", x=464, y=542)
 
     # Add arcs
-    #         source, target, weight
-    arc!(m, "txn0",     "weight", 2)
-    arc!(m, "txn0",     "value", 10)
-    arc!(m, "txn1",     "weight", 4)
-    arc!(m, "item0",    "txn0",   1)
-    arc!(m, "txn1",     "value", 10)
-    arc!(m, "item1",    "txn1",   1)
-    arc!(m, "item2",    "txn2",   1)
-    arc!(m, "item3",    "txn3",   1)
-    arc!(m, "txn2",     "weight", 6)
-    arc!(m, "txn2",     "value", 12)
-    arc!(m, "txn3",     "value", 18)
-    arc!(m, "txn3",     "weight", 9)
-    arc!(m, "capacity", "txn0",   2)
-    arc!(m, "capacity", "txn1",   4)
-    arc!(m, "capacity", "txn2",   6)
-    arc!(m, "capacity", "txn3",   9)
+    arc!(m, source="txn0", target="weight", weight=2)
+    arc!(m, source="txn0", target="value", weight=10)
+    arc!(m, source="txn1", target="weight", weight=4)
+    arc!(m, source="item0", target="txn0", weight=1)
+    arc!(m, source="txn1", target="value", weight=10)
+    arc!(m, source="item1", target="txn1", weight=1)
+    arc!(m, source="item2", target="txn2", weight=1)
+    arc!(m, source="item3", target="txn3", weight=1)
+    arc!(m, source="txn2", target="weight", weight=6)
+    arc!(m, source="txn2", target="value", weight=12)
+    arc!(m, source="txn3", target="value", weight=18)
+    arc!(m, source="txn3", target="weight", weight=9)
+    arc!(m, source="capacity", target="txn0", weight=2)
+    arc!(m, source="capacity", target="txn1", weight=4)
+    arc!(m, source="capacity", target="txn2", weight=6)
+    arc!(m, source="capacity", target="txn3", weight=9)
 end
 
 @testset "Pflow Model Tests" begin
@@ -65,7 +62,7 @@ end
         @test rates[:txn2] == 0 # txn2 is disabled
         @test rates[:txn3] == 1
 
-        state = initial_state(m)
+        state = set_state(m)
         @test state[:item0] == 1
         @test state[:item1] == 1
         @test state[:item2] == 1
