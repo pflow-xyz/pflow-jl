@@ -1,6 +1,6 @@
-# PFlow.jl
+# PFlow-jl
 
-PFlow.jl provides a wrapper to build out Petri-net models for [Petri.jl](https://github.com/username/Petri.jl).
+Pflow provides a wrapper to build out Petri-net models for Petri.jl.
 
 This wrapper makes it easier to compose Petri-nets with code, which allows faster iteration and more complex design.
 
@@ -20,7 +20,7 @@ Beta - works but visualization needs polish
 To install PFlow.jl, use the following command in Julia:
 ```julia
 using Pkg
-Pkg.add("PFlow")
+Pkg.add(PackageSpec(url="https://github.com/pflow-xyz/pflow-jl.git"))
 ```
 
 ## Usage
@@ -99,7 +99,7 @@ using Plots
 using OrdinaryDiffEq
 
 # Convert the model to Petri.Model
-petri = to_model(m)
+petri_net = to_model(m)
 
 time_max = 5.0
 tspan = (0.0, time_max)

@@ -3,6 +3,7 @@ module pflow
 using JSON
 using LabelledArrays
 using Petri
+using Base64
 
 struct Place
     label::String
@@ -72,8 +73,7 @@ function guard!(net::Pflow, source::String, target::String, weight::Union{Nothin
     push!(net.arcs, Arrow(source, target, weight, consume, produce, inhibit, read))
 end
 
-
-function to_state(pflow::Pflow)
+function set_state(pflow::Pflow)
     fields = Dict{Symbol, Number}()
     for (label, place) in pflow.places
         fields[Symbol(label)] = isnothing(place.initial) ? 0 : place.initial
@@ -81,8 +81,18 @@ function to_state(pflow::Pflow)
     return LVector(; fields...)
 end
 
+function set_state(pflow::Pflow, state)
+    fields = Dict{Symbol, Number}()
+    for (label, _) in pflow.places
+        if ! haskey(state, label)
+            error("Place $label not found in the state")
+        end
+        fields[Symbol(label)] = state[label]
+    end
+    return LVector(; fields...)
+end
 
-function default_rates(pflow::Pflow)
+function set_rates(pflow::Pflow)
     fields = Dict{Symbol, Number}()
     for (label, _) in pflow.transitions
         fields[Symbol(label)] = 1
@@ -181,7 +191,7 @@ end
 function new_svg_image(d::Display, width::Union{Int,Nothing}=nothing, height::Union{Int,Nothing}=nothing)
     w = width !== nothing ? width : 400
     h = height !== nothing ? height : 400
-    write(d.buffer, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"$w\" height=\"$h\">")
+    write(d.buffer, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" viewBox=\"0 0 $w $h\">")
     rect(d, 0, 0, w, h, "fill=\"#ffffff\"") # add white background
     write_defs(d)
 end
@@ -190,17 +200,17 @@ function write_defs(d::Display)
     write(
         d.buffer,
         """
-    <defs>
-        <marker id="markerArrow1" markerWidth="23" markerHeight="13" refX="31" refY="6" orient="auto">
-            <rect width="28" height="3" fill="white" stroke="white" x="3" y="5"/>
-            <path d="M2,2 L2,11 L10,6 L2,2"/>
-        </marker>
-        <marker id="markerInhibit1" markerWidth="23" markerHeight="13" refX="31" refY="6" orient="auto">
-            <rect width="28" height="3" fill="white" stroke="white" x="3" y="5"/>
-            <circle cx="5" cy="6.5" r="4"/>
-        </marker>
-    </defs>
-"""
+            <defs>
+                <marker id="markerArrow1" markerWidth="23" markerHeight="13" refX="31" refY="6" orient="auto">
+                    <rect width="28" height="3" fill="white" stroke="white" x="3" y="5"/>
+                    <path d="M2,2 L2,11 L10,6 L2,2"/>
+                </marker>
+                <marker id="markerInhibit1" markerWidth="23" markerHeight="13" refX="31" refY="6" orient="auto">
+                    <rect width="28" height="3" fill="white" stroke="white" x="3" y="5"/>
+                    <circle cx="5" cy="6.5" r="4"/>
+                </marker>
+            </defs>
+        """
     )
 end
 
@@ -261,14 +271,11 @@ function end_svg(d::Display)
 end
 
 function to_html(d::Display)::String
-    model_type = d.model.model_type
-    svg_content = String(take!(d.buffer))
     return """
     <!DOCTYPE html>
     <html>
         <body>
-            <h5>$model_type</h5>
-            <div>$svg_content</div>
+            $(String(take!(d.buffer)))
         </body>
     </html>
     """

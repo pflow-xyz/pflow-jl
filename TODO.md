@@ -6,11 +6,10 @@ WIP
 
 BACKLOG
 -------
-- [ ] consider modifying html to scale image when using to_html()
 
 DONE
 ----
-
+- [x] modify html to scale image when using to_html()
 - [x] add white background
 - [x] can convert json -> ODE system
     consider building on top of the nets defined w/ named tuples
