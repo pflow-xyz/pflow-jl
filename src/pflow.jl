@@ -262,15 +262,42 @@ function arc_element(d::Display, arc::Arrow)
     group(d)
     marker = arc.inhibit ? "url(#markerInhibit1)" : "url(#markerArrow1)"
     extra = "stroke=\"#000000\" fill=\"#000000\" marker-end=\"$marker\""
+
+    if arc.inhibit
+        if haskey(d.model.places, arc.source)
+            p = d.model.places[arc.source]
+            t = d.model.transitions[arc.target]
+        else
+            p = d.model.places[arc.target]
+            t = d.model.transitions[arc.source]
+        end
+    else
+        if haskey(d.model.places, arc.source)
+            p = d.model.places[arc.source]
+            t = d.model.transitions[arc.target]
+        else
+            p = d.model.places[arc.target]
+            t = d.model.transitions[arc.source]
+        end
+    end
+
+    # REVIEW: use the new bool functions
     if haskey(d.model.places, arc.source)
         p = d.model.places[arc.source]
         t = d.model.transitions[arc.target]
         line(d, p.x, p.y, t.x, t.y, extra)
+        mid_x = (p.x + t.x) / 2
+        mid_y = (p.y + t.y) / 2 - 8
     else
         p = d.model.places[arc.target]
         t = d.model.transitions[arc.source]
         line(d, t.x, t.y, p.x, p.y, extra)
+        mid_x = (t.x + p.x) / 2
+        mid_y = (t.y + p.y) / 2 - 8
     end
+
+    weight = isnothing(arc.weight) ? 1 : arc.weight
+    text(d, Int(round(mid_x - 4)), Int(round(mid_y + 4)), "$weight", "font-size=\"small\"")
     gend(d)
 end
 

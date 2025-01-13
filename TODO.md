@@ -1,14 +1,14 @@
 WIP
 ---
 
-- [ ] fix active/disabled hilighting in svg
-- [ ] fix token count missing in svg
+- [ ] fix active/disabled hilighting in svg - should we do this without calculating delta vectors ?
 
 BACKLOG
 -------
 
 DONE
 ----
+- [x] fix token count missing in svg
 - [x] modify html to scale image when using to_html()
 - [x] add white background
 - [x] can convert json -> ODE system
