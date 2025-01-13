@@ -64,7 +64,6 @@ function arc!(net::Pflow; source::String="", target::String="", weight::Union{No
     push!(net.arcs, Arrow(source, target, weight, consume, produce, inhibit, read))
 end
 
-
 function guard!(net::Pflow, source::String, target::String, weight::Union{Nothing,Int})
     # set consume if source is a place and target is a transition
     consume = haskey(net.places, source) && haskey(net.transitions, target)
@@ -241,6 +240,21 @@ function place_element(d::Display, label::String, place::Place)
     group(d)
     circle(d, place.x, place.y, 16, "stroke-width=\"1.5\" fill=\"#ffffff\" stroke=\"#000000\"")
     text(d, place.x - 18, place.y - 20, label, "font-size=\"small\"")
+    
+    x = place.x
+    y = place.y
+    tokens = isnothing(place.initial) ? 0 : place.initial
+    
+    if tokens > 0
+        if tokens == 1
+            circle(d, x, y, 2, "fill=\"#000000\" stroke=\"#000000\"")
+        elseif tokens < 10
+            text(d, x - 4, y + 5, string(tokens), "font-size=\"large\"")
+        else
+            text(d, x - 7, y + 5, string(tokens), "font-size=\"small\"")
+        end
+    end
+    
     gend(d)
 end
 
