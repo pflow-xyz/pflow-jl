@@ -1,13 +1,15 @@
 WIP
 ---
 
-- [ ] fix active/disabled hilighting in svg - should we do this without calculating delta vectors ?
 
 BACKLOG
 -------
+- [ ] fix active/disabled hilighting in svg - should we do this without calculating delta vectors ?
+- [ ] fix arc attributes to have proper boolean values set
 
 DONE
 ----
+- [x] add a StateMachine to apply transformations & store rates
 - [x] fix token count missing in svg
 - [x] modify html to scale image when using to_html()
 - [x] add white background

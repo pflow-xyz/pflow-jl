@@ -1,6 +1,6 @@
 using Test
 using Petri
-using pflow: Pflow, place!, arc!, guard!, transition!, initial_state, to_json, to_svg, to_html, to_model, set_state, set_rates
+using pflow: Pflow, StateMachine, place!, arc!, guard!, transition!, to_json, to_svg, to_html, to_model, set_state, set_rates, transform!
 
 # Define a simple Petri net model to solve a knapsack problem
 # Try the interactive version:
@@ -90,4 +90,14 @@ end
         # with OrdinaryDiffEq and Plots to simulate and analyze this model
     end
 
+    @testset "StateMachine" begin
+        model = Pflow()
+        knapsack!(model)
+        sm = StateMachine(model)
+        @test sm.state[:item0] == 1
+        transform!(sm, :txn0)
+        @test sm.state[:item0] == 0
+    end
+
 end
+

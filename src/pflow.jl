@@ -40,6 +40,48 @@ mutable struct Pflow
     arcs::Vector{Arrow}
 end
 
+mutable struct StateMachine
+    model::Pflow
+    state
+    rates
+end
+
+function StateMachine(m::Pflow)
+    StateMachine(m, set_state(m), set_rates(m))
+end
+
+function to_model(sm::StateMachine)::Petri.Model
+    to_model(sm.model)
+end
+
+function set_rates!(sm::StateMachine, rates)
+    sm.rates = set_rates(sm.model, rates)
+end
+
+function set_state!(sm::StateMachine, state)
+    sm.state = set_state(sm.model, state)
+end
+
+function transform!(sm::StateMachine, action::Symbol, multiple=1)
+    new_state = copy(sm.state)
+    for arc in sm.model.arcs
+        t = Symbol(arc.target)
+        s = Symbol(arc.source)
+        if t == action
+            #println("$s -> $t")
+            new_state[s] -= arc.weight * multiple
+            if new_state[s] < 0
+                return false
+            end
+        elseif s == action
+            #println("$s -> $t")
+            new_state[t] += arc.weight * multiple
+        end
+    end
+    sm.state = new_state
+    return true
+end
+
 function Pflow()
     Pflow("petriNet", "v0", Dict(), Dict(), [])
 end
@@ -133,15 +175,17 @@ function to_model(pflow::Pflow)::Petri.Model
         # Find input places (arcs where the transition is the target)
         for arc in pflow.arcs
             if arc.target == label
-                if ! arc.consume
-                    error("Transition $label should consume from place $arc.source")
-                end
+                # FIXME consume attribute isn't set properly
+                #if ! arc.consume
+                #    error("Transition $label should consume from place $arc.source")
+                #end
                 input_places[Symbol(arc.source)] = isnothing(arc.weight) ? 1 : arc.weight
             end
             if arc.source == label
-                if ! arc.produce
-                    error("Transition $label should produce to place $arc.target")
-                end
+                # FIXME make sure attributes are set properly on arcs
+                #if ! arc.produce
+                #    error("Transition $label should produce to place $arc.target")
+                #end
                 output_places[Symbol(arc.target)] = isnothing(arc.weight) ? 1 : arc.weight
             end
         end
