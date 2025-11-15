@@ -169,7 +169,7 @@ This is a targeted, temporary fix applied only to the package copy inside CI ima
 
 Once upstream packages release compatible versions (or Petri updates its references), remove the call to `tools/patch_petri.sh` from the `Dockerfile` and delete the script.
 
-To test locally (Julia 1.12):
+To test locally:
 
 ```bash
 julia --project=. -e 'using Pkg; Pkg.instantiate()'

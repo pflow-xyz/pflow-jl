@@ -34,6 +34,7 @@ fi
 
 # Remove compiled caches to ensure precompilation uses the patched file
 echo "Clearing Julia precompile caches for Petri / SteadyStateDiffEq / pflow (if present)"
-rm -rf /root/.julia/compiled/v1.12/Petri /root/.julia/compiled/v1.12/SteadyStateDiffEq /root/.julia/compiled/v1.12/pflow || true
+# Use wildcard to match any Julia version
+rm -rf /root/.julia/compiled/v*/Petri /root/.julia/compiled/v*/SteadyStateDiffEq /root/.julia/compiled/v*/pflow || true
 
 echo "Patch completed."
