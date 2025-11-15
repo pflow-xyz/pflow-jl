@@ -339,13 +339,11 @@ end
 
 function to_pflow_url(net::Pflow)::String
     json_str = to_json(net)
-    json_dict = JSON.parse(json_str)
-    cid = json_dict["@id"]
     
     # URL encode the JSON data
     encoded_data = urlencode(json_str)
     
-    return "https://pflow.xyz/?cid=$(cid)&data=$(encoded_data)"
+    return "https://pflow.xyz/?data=$(encoded_data)"
 end
 
 mutable struct Display
