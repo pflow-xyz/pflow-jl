@@ -17,7 +17,7 @@ This document provides detailed instructions for running PFlow.jl with Jupyter N
 
 2. **Start the Jupyter notebook server**:
    ```bash
-   docker-compose up
+   docker compose up
    ```
 
 3. **Access Jupyter Notebook**:
@@ -39,9 +39,9 @@ The `Dockerfile` sets up:
 - IJulia kernel for Jupyter
 - Additional packages (Plots, OrdinaryDiffEq)
 
-### docker-compose.yml
+### docker compose.yml
 
-The `docker-compose.yml` provides:
+The `docker compose.yml` provides:
 - Automatic port mapping (8888:8888)
 - Volume mounting for live code editing
 - Persistent Julia package storage
@@ -51,59 +51,59 @@ The `docker-compose.yml` provides:
 
 ### Starting the Container
 
-**Using docker-compose (recommended)**:
+**Using docker compose (recommended)**:
 ```bash
-docker-compose up
+docker compose up
 ```
 
 **Run in detached mode (background)**:
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 **View logs**:
 ```bash
-docker-compose logs -f
+docker compose logs -f
 ```
 
 ### Stopping the Container
 
 **Stop the container**:
 ```bash
-docker-compose down
+docker compose down
 ```
 
 **Stop and remove volumes**:
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 
 ### Rebuilding After Changes
 
 If you modify the Dockerfile or dependencies:
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 ### Running Julia REPL Instead of Jupyter
 
 To start an interactive Julia session instead of Jupyter:
 ```bash
-docker-compose run --rm jupyter julia --project=.
+docker compose run --rm jupyter julia --project=.
 ```
 
 ### Executing Julia Scripts
 
 To run a Julia script:
 ```bash
-docker-compose run --rm jupyter julia --project=. /workspace/examples/traffic_light_colored.jl
+docker compose run --rm jupyter julia --project=. /workspace/examples/traffic_light_colored.jl
 ```
 
 ## Advanced Configuration
 
 ### Custom Jupyter Settings
 
-To add a password or token, modify the `docker-compose.yml`:
+To add a password or token, modify the `docker compose.yml`:
 ```yaml
 command: jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token='your-token-here'
 ```
@@ -117,7 +117,7 @@ FROM julia:1.12.1  # or any other version
 
 ### Port Configuration
 
-To use a different port, modify `docker-compose.yml`:
+To use a different port, modify `docker compose.yml`:
 ```yaml
 ports:
   - "9999:8888"  # Maps host port 9999 to container port 8888
@@ -131,13 +131,13 @@ Then access at: `http://localhost:9999`
 
 If port 8888 is already in use:
 1. Stop the conflicting service, or
-2. Change the port in `docker-compose.yml` (see above)
+2. Change the port in `docker compose.yml` (see above)
 
 ### Permission Issues
 
 If you encounter permission issues with mounted volumes:
 ```bash
-docker-compose run --rm jupyter chown -R $(id -u):$(id -g) /workspace
+docker compose run --rm jupyter chown -R $(id -u):$(id -g) /workspace
 ```
 
 ### Package Installation Issues
@@ -145,22 +145,22 @@ docker-compose run --rm jupyter chown -R $(id -u):$(id -g) /workspace
 If Julia packages fail to install:
 1. Remove the volume and rebuild:
    ```bash
-   docker-compose down -v
-   docker-compose up --build
+   docker compose down -v
+   docker compose up --build
    ```
 
 ### Container Won't Start
 
 Check the logs:
 ```bash
-docker-compose logs jupyter
+docker compose logs jupyter
 ```
 
 ## Development Workflow
 
 1. **Start the container**:
    ```bash
-   docker-compose up
+   docker compose up
    ```
 
 2. **Edit files locally**: Changes are immediately reflected in the container due to volume mounting
@@ -169,7 +169,7 @@ docker-compose logs jupyter
 
 4. **Run tests**:
    ```bash
-   docker-compose exec jupyter make test
+   docker compose exec jupyter make test
    ```
 
 ## Volume Management
@@ -180,7 +180,7 @@ The container uses two volumes:
 
 To clean up volumes:
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 
 ## Security Notes

@@ -54,9 +54,9 @@ You can run PFlow.jl with Jupyter Notebook using Docker. This provides a pre-con
    cd pflow-jl
    ```
 
-2. Start the Jupyter notebook server using docker-compose:
+2. Start the Jupyter notebook server using docker compose:
    ```bash
-   docker-compose up
+   docker compose up
    ```
 
 3. Open your browser and navigate to:
