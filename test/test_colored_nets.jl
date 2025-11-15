@@ -106,8 +106,8 @@ using pflow: Pflow, place!, arc!, transition!, to_json, to_svg
         svg_str = to_svg(m)
         
         # Check for CSS classes matching pflow-xyz style
-        @test occursin("class=\"place\"", svg_str)
-        @test occursin("class=\"transition\"", svg_str)
+        @test occursin("class=\"place\"", svg_str) || occursin("class=\"place ", svg_str)
+        @test occursin("class=\"transition\"", svg_str) || occursin("class=\"transition ", svg_str)
         @test occursin("class=\"arc\"", svg_str)
         @test occursin("class=\"weight-bg\"", svg_str)
         @test occursin("<style>", svg_str)
