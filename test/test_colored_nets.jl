@@ -71,7 +71,7 @@ using pflow: Pflow, place!, arc!, transition!, to_json, to_svg
         # Check JSON-LD @type fields
         @test occursin("\"@type\":\"Place\"", replace(json_str, " " => ""))
         @test occursin("\"@type\":\"Transition\"", replace(json_str, " " => ""))
-        @test occursin("\"@type\":\"Arc\"", replace(json_str, " " => ""))
+        @test occursin("\"@type\":\"Arrow\"", replace(json_str, " " => ""))
         
         # Check token field
         @test occursin("\"token\"", json_str)
