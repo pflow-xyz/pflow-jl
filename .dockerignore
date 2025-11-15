@@ -1,0 +1,41 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints
+**/.ipynb_checkpoints/
+
+# Julia artifacts and cache
+Manifest.toml
+*.ji
+
+# Documentation build artifacts
+docs/build/
+docs/site/
+
+# Test artifacts
+*.cov
+*.mem
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files (don't copy into image)
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Build artifacts
+*.svg
+*.html
+demo_*
