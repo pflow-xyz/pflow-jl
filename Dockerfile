@@ -17,9 +17,15 @@ COPY Project.toml Manifest.toml ./
 COPY src/ ./src/
 COPY test/ ./test/
 COPY examples/ ./examples/
+COPY tools/ ./tools/
 
-# Install Julia dependencies
-RUN julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+# Install Julia dependencies and apply Petri.jl patch
+# Note: The patch works around a SteadyStateDiffEq precompilation error in Petri.jl v1.3.0
+# where NLSolveTerminationCondition is not defined. This is a temporary fix until upstream
+# packages are updated. See WORKAROUND.md and tools/patch_petri.sh for details.
+RUN julia --project=. -e 'using Pkg; Pkg.instantiate()' && \
+    /bin/sh tools/patch_petri.sh && \
+    julia --project=. -e 'using Pkg; Pkg.precompile()'
 
 # Install IJulia for Jupyter notebook support
 RUN julia -e 'using Pkg; Pkg.add("IJulia"); using IJulia; IJulia.installkernel("Julia", "--project=@.")'

@@ -4,12 +4,27 @@
 The package Petri.jl v1.3.0 depends on SteadyStateDiffEq v1.16.1, which has a compatibility issue with Julia 1.12. The error occurs because `NLSolveTerminationCondition` was removed or relocated in newer versions of SciMLBase.
 
 ## Temporary Workaround
+
+### Automated Docker Build Workaround
+The Docker build process automatically applies this patch using the `tools/patch_petri.sh` script. No manual intervention is required when using Docker.
+
+To test the Docker build locally:
+```bash
+docker build --progress=plain -t pflow-jl:local .
+```
+
+### Manual Workaround for Local Development
 After running `Pkg.instantiate()`, manually patch the Petri.jl source file to comment out the solvers module:
 
 ```bash
 chmod u+w ~/.julia/packages/Petri/x8N4V/src/Petri.jl
 sed -i 's/include("solvers.jl")/# include("solvers.jl")  # Commented out to avoid SteadyStateDiffEq precompilation error/' ~/.julia/packages/Petri/x8N4V/src/Petri.jl
 rm -rf ~/.julia/compiled/v1.12/Petri ~/.julia/compiled/v1.12/SteadyStateDiffEq ~/.julia/compiled/v1.12/pflow
+```
+
+Alternatively, use the provided patch script:
+```bash
+sh tools/patch_petri.sh
 ```
 
 ## Impact

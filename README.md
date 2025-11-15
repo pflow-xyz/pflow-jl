@@ -47,6 +47,8 @@ There is a compatibility issue with the Petri.jl dependency and Julia 1.12. Afte
 ## Docker Setup
 You can run PFlow.jl with Jupyter Notebook using Docker. This provides a pre-configured environment without needing to install Julia or dependencies locally.
 
+**Note:** The Docker build includes an automatic workaround for the Petri.jl/SteadyStateDiffEq compatibility issue. The build process applies a patch via `tools/patch_petri.sh` that comments out unused solver functionality. This patch is temporary and will be removed once upstream packages are updated. See [WORKAROUND.md](WORKAROUND.md) for details.
+
 ### Quick Start with Docker
 1. Clone the repository:
    ```bash
