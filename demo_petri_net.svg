@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 450 400" width="450" height="400">
+<defs>
+<style>
+.place { fill: #fff; stroke: #333; stroke-width: 2; }
+.transition { fill: #ffffff; stroke: #000; stroke-width: 1; }
+.transition-active { fill: #62fa75; stroke: #000; }
+.arc { stroke: #cfcfcf; stroke-width: 1; fill: none; }
+.arrowhead { fill: #cfcfcf; }
+.token-dot { fill: #333; }
+.token-text { font-family: system-ui, Arial; font-size: 12px; fill: #333; text-anchor: middle; dominant-baseline: middle; }
+.weight-badge { font-family: system-ui, Arial; font-size: 10px; fill: #666; text-anchor: middle; dominant-baseline: middle; }
+.weight-bg { fill: #fafafa; stroke: #ddd; stroke-width: 1; }
+.label-text { font-family: system-ui, Arial; font-size: 11px; fill: #333; text-anchor: middle; dominant-baseline: hanging; }
+</style>
+</defs>
+
+<!-- Arc from p1 to t1 -->
+<g>
+  <line x1="116" y1="150" x2="168" y2="150" class="arc"/>
+  <path d="M 175 150 L 167 146 L 167 153 Z" class="arrowhead"/>
+  <circle cx="145" cy="150" r="10" class="weight-bg"/>
+  <text x="145" y="150" class="weight-badge">1</text>
+</g>
+
+<!-- Arc from t1 to p3 -->
+<g>
+  <line x1="217" y1="150" x2="268" y2="150" class="arc"/>
+  <path d="M 275 150 L 267 146 L 267 153 Z" class="arrowhead"/>
+  <circle cx="245" cy="150" r="10" class="weight-bg"/>
+  <text x="245" y="150" class="weight-badge">1</text>
+</g>
+
+<!-- Arc from p2 to t2 -->
+<g>
+  <line x1="116" y1="250" x2="168" y2="250" class="arc"/>
+  <path d="M 175 250 L 167 246 L 167 253 Z" class="arrowhead"/>
+  <circle cx="145" cy="250" r="10" class="weight-bg"/>
+  <text x="145" y="250" class="weight-badge">1</text>
+</g>
+
+<!-- Arc from t2 to p4 -->
+<g>
+  <line x1="217" y1="250" x2="268" y2="250" class="arc"/>
+  <path d="M 275 250 L 267 246 L 267 253 Z" class="arrowhead"/>
+  <circle cx="245" cy="250" r="10" class="weight-bg"/>
+  <text x="245" y="250" class="weight-badge">1</text>
+</g>
+
+<!-- Place p1 (has 2 tokens - input to enabled t1) -->
+<g>
+  <circle cx="100" cy="150" r="16" class="place"/>
+  <text x="100" y="178" class="label-text">p1</text>
+  <text x="100" y="150" class="token-text">2</text>
+</g>
+
+<!-- Place p2 (has 0 tokens - input to disabled t2) -->
+<g>
+  <circle cx="100" cy="250" r="16" class="place"/>
+  <text x="100" y="278" class="label-text">p2</text>
+</g>
+
+<!-- Place p3 (output) -->
+<g>
+  <circle cx="291" cy="150" r="16" class="place"/>
+  <text x="291" y="178" class="label-text">p3</text>
+</g>
+
+<!-- Place p4 (output) -->
+<g>
+  <circle cx="291" cy="250" r="16" class="place"/>
+  <text x="291" y="278" class="label-text">p4</text>
+</g>
+
+<!-- Transition t1 (ENABLED - green) -->
+<g>
+  <rect x="185" y="135" width="30" height="30" class="transition transition-active" rx="4"/>
+  <text x="200" y="178" class="label-text">t1</text>
+</g>
+
+<!-- Transition t2 (DISABLED - white) -->
+<g>
+  <rect x="185" y="235" width="30" height="30" class="transition" rx="4"/>
+  <text x="200" y="278" class="label-text">t2</text>
+</g>
+
+</svg>
