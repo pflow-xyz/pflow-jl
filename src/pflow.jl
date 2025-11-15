@@ -5,13 +5,26 @@ using LabelledArrays
 using Petri
 using Base64
 
+# Export main types
+export Pflow, StateMachine, Place, Transition, Arrow
+
+# Export builder functions  
+export place!, transition!, arc!, guard!
+
+# Export conversion functions
+export to_json, to_svg, to_html, to_model, to_state, set_state, set_rates, set_state!, set_rates!
+
+# Export state machine functions
+export transform!
+
 struct Place
     label::String
     offset::Int
-    initial::Union{Nothing,Int}
-    capacity::Union{Nothing,Int}
+    initial::Vector{Int}  # Changed to array for colored Petri nets
+    capacity::Vector{Float64}  # Changed to array for colored Petri nets
     x::Int
     y::Int
+    label_text::Union{Nothing,String}  # Optional label for display
 end
 
 struct Transition
@@ -20,16 +33,18 @@ struct Transition
     role::String
     x::Int
     y::Int
+    label_text::Union{Nothing,String}  # Optional label for display
 end
 
 struct Arrow
     source::String
     target::String
-    weight::Union{Nothing,Int}
+    weight::Vector{Int}  # Changed to array for colored Petri nets
     consume::Union{Nothing,Bool}
     produce::Union{Nothing,Bool}
     inhibit::Union{Nothing,Bool}
     read::Union{Nothing,Bool}
+    inhibit_transition::Bool  # Renamed for JSON-LD compatibility
 end
 
 mutable struct Pflow
@@ -38,6 +53,7 @@ mutable struct Pflow
     places::Dict{String,Place}
     transitions::Dict{String,Transition}
     arcs::Vector{Arrow}
+    token::Vector{String}  # Array of token color URLs or hex colors for colored Petri nets
 end
 
 mutable struct StateMachine
@@ -67,15 +83,17 @@ function transform!(sm::StateMachine, action::Symbol, multiple=1)
     for arc in sm.model.arcs
         t = Symbol(arc.target)
         s = Symbol(arc.source)
+        # Sum array weights for state transformation
+        weight_sum = isempty(arc.weight) ? 1 : sum(arc.weight)
         if t == action
             #println("$s -> $t")
-            new_state[s] -= arc.weight * multiple
+            new_state[s] -= weight_sum * multiple
             if new_state[s] < 0
                 return false
             end
         elseif s == action
             #println("$s -> $t")
-            new_state[t] += arc.weight * multiple
+            new_state[t] += weight_sum * multiple
         end
     end
     sm.state = new_state
@@ -83,44 +101,83 @@ function transform!(sm::StateMachine, action::Symbol, multiple=1)
 end
 
 function Pflow()
-    Pflow("petriNet", "v0", Dict(), Dict(), [])
+    Pflow("petriNet", "v0", Dict(), Dict(), [], String[])
 end
 
-function place!(net::Pflow, label::String; offset::Union{Nothing,Int}=nothing, initial::Union{Nothing,Int}=nothing, capacity::Union{Nothing,Int}=nothing, x::Int=0, y::Int=0)
+function place!(net::Pflow, label::String; offset::Union{Nothing,Int}=nothing, initial::Union{Nothing,Int,Vector{Int}}=nothing, capacity::Union{Nothing,Int,Float64,Vector{Float64}}=nothing, x::Int=0, y::Int=0, label_text::Union{Nothing,String}=nothing)
     offset = isnothing(offset) ? length(net.transitions) : offset
-    net.places[label] = Place(label, offset, initial, capacity, x, y)
+    
+    # Convert scalar to array for colored Petri net compatibility
+    initial_arr = if isnothing(initial)
+        Int[]
+    elseif isa(initial, Vector)
+        initial
+    else
+        [initial]
+    end
+    
+    capacity_arr = if isnothing(capacity)
+        Float64[]
+    elseif isa(capacity, Vector)
+        capacity
+    else
+        [Float64(capacity)]
+    end
+    
+    net.places[label] = Place(label, offset, initial_arr, capacity_arr, x, y, label_text)
 end
 
-function transition!(net::Pflow, label::String; offset::Union{Nothing,Int}=nothing, role::String="default", x::Int=0, y::Int=0)
+function transition!(net::Pflow, label::String; offset::Union{Nothing,Int}=nothing, role::String="default", x::Int=0, y::Int=0, label_text::Union{Nothing,String}=nothing)
     offset = isnothing(offset) ? length(net.transitions) : offset
-    net.transitions[label] = Transition(label, offset, role, x, y)
+    net.transitions[label] = Transition(label, offset, role, x, y, label_text)
 end
 
-function arc!(net::Pflow; source::String="", target::String="", weight::Union{Nothing,Int}=1)
+function arc!(net::Pflow; source::String="", target::String="", weight::Union{Nothing,Int,Vector{Int}}=1)
+    # Convert scalar to array for colored Petri net compatibility
+    weight_arr = if isnothing(weight)
+        [1]
+    elseif isa(weight, Vector)
+        weight
+    else
+        [weight]
+    end
+    
     # set consume if source is a place and target is a transition
     consume = haskey(net.places, source) && haskey(net.transitions, target)
     # set produce if source is a transition and target is a place
     produce = haskey(net.transitions, source) && haskey(net.places, target)
     inhibit = false
     read = false
-    push!(net.arcs, Arrow(source, target, weight, consume, produce, inhibit, read))
+    inhibit_transition = false
+    push!(net.arcs, Arrow(source, target, weight_arr, consume, produce, inhibit, read, inhibit_transition))
 end
 
-function guard!(net::Pflow, source::String, target::String, weight::Union{Nothing,Int})
+function guard!(net::Pflow, source::String, target::String, weight::Union{Nothing,Int,Vector{Int}})
+    # Convert scalar to array for colored Petri net compatibility
+    weight_arr = if isnothing(weight)
+        [1]
+    elseif isa(weight, Vector)
+        weight
+    else
+        [weight]
+    end
+    
     # set consume if source is a place and target is a transition
     consume = haskey(net.places, source) && haskey(net.transitions, target)
     # set produce if source is a transition and target is a place
     produce = haskey(net.transitions, source) && haskey(net.places, target)
     inhibit = true
     read = haskey(net.transitions, source) && haskey(net.places, target)
+    inhibit_transition = true
 
-    push!(net.arcs, Arrow(source, target, weight, consume, produce, inhibit, read))
+    push!(net.arcs, Arrow(source, target, weight_arr, consume, produce, inhibit, read, inhibit_transition))
 end
 
 function set_state(pflow::Pflow)
     fields = Dict{Symbol, Number}()
     for (label, place) in pflow.places
-        fields[Symbol(label)] = isnothing(place.initial) ? 0 : place.initial
+        # Sum array values for ODE conversion (colored nets collapse to counts)
+        fields[Symbol(label)] = isempty(place.initial) ? 0 : sum(place.initial)
     end
     return LVector(; fields...)
 end
@@ -175,18 +232,14 @@ function to_model(pflow::Pflow)::Petri.Model
         # Find input places (arcs where the transition is the target)
         for arc in pflow.arcs
             if arc.target == label
-                # FIXME consume attribute isn't set properly
-                #if ! arc.consume
-                #    error("Transition $label should consume from place $arc.source")
-                #end
-                input_places[Symbol(arc.source)] = isnothing(arc.weight) ? 1 : arc.weight
+                # Sum array weights for ODE conversion (colored nets collapse to counts)
+                weight_sum = isempty(arc.weight) ? 1 : sum(arc.weight)
+                input_places[Symbol(arc.source)] = weight_sum
             end
             if arc.source == label
-                # FIXME make sure attributes are set properly on arcs
-                #if ! arc.produce
-                #    error("Transition $label should produce to place $arc.target")
-                #end
-                output_places[Symbol(arc.target)] = isnothing(arc.weight) ? 1 : arc.weight
+                # Sum array weights for ODE conversion (colored nets collapse to counts)
+                weight_sum = isempty(arc.weight) ? 1 : sum(arc.weight)
+                output_places[Symbol(arc.target)] = weight_sum
             end
         end
 
@@ -197,31 +250,58 @@ function to_model(pflow::Pflow)::Petri.Model
 end
 
 function to_json(net::Pflow)::String
-    JSON.json(Dict(
-        "modelType" => net.model_type,
-        "version" => net.version,
-        "places" => Dict(k => Dict(
+    places_dict = Dict{String, Any}()
+    for (k, v) in net.places
+        place_obj = Dict{String, Any}(
+            "@type" => "Place",
             "offset" => v.offset,
             "initial" => v.initial,
             "capacity" => v.capacity,
             "x" => v.x,
             "y" => v.y
-        ) for (k, v) in net.places),
-        "transitions" => Dict(k => Dict(
+        )
+        if !isnothing(v.label_text)
+            place_obj["label"] = v.label_text
+        end
+        places_dict[k] = place_obj
+    end
+    
+    transitions_dict = Dict{String, Any}()
+    for (k, v) in net.transitions
+        trans_obj = Dict{String, Any}(
+            "@type" => "Transition",
             "role" => v.role,
             "offset" => v.offset,
             "x" => v.x,
             "y" => v.y
-        ) for (k, v) in net.transitions),
-        "arcs" => [Dict(
+        )
+        if !isnothing(v.label_text)
+            trans_obj["label"] = v.label_text
+        end
+        transitions_dict[k] = trans_obj
+    end
+    
+    arcs_arr = []
+    for arc in net.arcs
+        arc_obj = Dict{String, Any}(
+            "@type" => "Arc",
             "source" => arc.source,
             "target" => arc.target,
-            "weight" => arc.weight,
-            "consume" => arc.consume,
-            "produce" => arc.produce,
-            "inhibit" => arc.inhibit,
-            "read" => arc.read
-        ) for arc in net.arcs]
+            "weight" => arc.weight
+        )
+        if arc.inhibit_transition
+            arc_obj["inhibitTransition"] = true
+        end
+        push!(arcs_arr, arc_obj)
+    end
+    
+    JSON.json(Dict(
+        "modelType" => net.model_type,
+        "version" => net.version,
+        "places" => places_dict,
+        "transitions" => transitions_dict,
+        "arcs" => arcs_arr,
+        "token" => net.token
     ))
 end
 
@@ -237,8 +317,7 @@ end
 function new_svg_image(d::Display, width::Union{Int,Nothing}=nothing, height::Union{Int,Nothing}=nothing)
     w = isnothing(width) ? 400 : width
     h = isnothing(height) ? 400 : height
-    write(d.buffer, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100%\" height=\"100%\" viewBox=\"0 0 $w $h\">")
-    rect(d, 0, 0, w, h, "fill=\"#ffffff\"") # add white background
+    write(d.buffer, "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 $w $h\" width=\"$w\" height=\"$h\">")
     write_defs(d)
 end
 
@@ -246,16 +325,26 @@ function write_defs(d::Display)
     write(
         d.buffer,
         """<defs>
-               <marker id="markerArrow1" markerWidth="23" markerHeight="13" refX="31" refY="6" orient="auto">
-                   <rect width="28" height="3" fill="white" stroke="white" x="3" y="5"/>
-                   <path d="M2,2 L2,11 L10,6 L2,2"/>
-               </marker>
-               <marker id="markerInhibit1" markerWidth="23" markerHeight="13" refX="31" refY="6" orient="auto">
-                   <rect width="28" height="3" fill="white" stroke="white" x="3" y="5"/>
-                   <circle cx="5" cy="6.5" r="4"/>
-               </marker>
-           </defs>
-        """
+<style>
+.place { fill: #fff; stroke: #333; stroke-width: 2; }
+.place-cap-full { fill: #ffebee; }
+.transition { fill: #ffffff; stroke: #000; stroke-width: 1; }
+.transition-active { fill: #62fa75; stroke: #000; }
+.arc { stroke: #cfcfcf; stroke-width: 1; fill: none; }
+.arc-active { stroke: #2a6fb8; }
+.arrowhead { fill: #cfcfcf; }
+.arrowhead-active { fill: #2a6fb8; }
+.inhibitor { fill: #fff; stroke: #cfcfcf; stroke-width: 1.3; }
+.inhibitor-active { stroke: #2a6fb8; }
+.token-dot { fill: #333; }
+.token-text { font-family: system-ui, Arial; font-size: 12px; fill: #333; text-anchor: middle; dominant-baseline: middle; }
+.weight-badge { font-family: system-ui, Arial; font-size: 10px; fill: #666; text-anchor: middle; dominant-baseline: middle; }
+.weight-bg { fill: #fafafa; stroke: #ddd; stroke-width: 1; }
+.weight-bg-active { fill: #e8f0fb; stroke: #2a6fb8; }
+.label-text { font-family: system-ui, Arial; font-size: 11px; fill: #333; text-anchor: middle; dominant-baseline: hanging; }
+</style>
+</defs>
+"""
     )
 end
 
@@ -282,20 +371,29 @@ end
 
 function place_element(d::Display, label::String, place::Place)
     group(d)
-    circle(d, place.x, place.y, 16, "stroke-width=\"1.5\" fill=\"#ffffff\" stroke=\"#000000\"")
-    text(d, place.x - 18, place.y - 20, label, "font-size=\"small\"")
+    
+    # Sum array values for display (colored nets collapse to counts)
+    tokens = isempty(place.initial) ? 0 : sum(place.initial)
+    
+    # Check if place is at capacity
+    capacity = isempty(place.capacity) ? Inf : place.capacity[1]
+    is_full = capacity != Inf && tokens >= capacity
+    
+    place_class = is_full ? "place place-cap-full" : "place"
+    circle(d, place.x, place.y, 16, "class=\"$place_class\"")
+    
+    # Display label (use label_text if available, otherwise use label)
+    display_label = isnothing(place.label_text) ? label : place.label_text
+    text(d, place.x, place.y - 20, display_label, "class=\"label-text\"")
     
     x = place.x
     y = place.y
-    tokens = isnothing(place.initial) ? 0 : place.initial
     
     if tokens > 0
         if tokens == 1
-            circle(d, x, y, 2, "fill=\"#000000\" stroke=\"#000000\"")
-        elseif tokens < 10
-            text(d, x - 4, y + 5, string(tokens), "font-size=\"large\"")
+            circle(d, x, y, 2, "class=\"token-dot\"")
         else
-            text(d, x - 7, y + 5, string(tokens), "font-size=\"small\"")
+            text(d, x, y, string(tokens), "class=\"token-text\"")
         end
     end
     
@@ -304,52 +402,77 @@ end
 
 function arc_element(d::Display, arc::Arrow)
     group(d)
-    marker = arc.inhibit ? "url(#markerInhibit1)" : "url(#markerArrow1)"
-    extra = "stroke=\"#000000\" fill=\"#000000\" marker-end=\"$marker\""
-
-    if arc.inhibit
-        if haskey(d.model.places, arc.source)
-            p = d.model.places[arc.source]
-            t = d.model.transitions[arc.target]
-        else
-            p = d.model.places[arc.target]
-            t = d.model.transitions[arc.source]
-        end
-    else
-        if haskey(d.model.places, arc.source)
-            p = d.model.places[arc.source]
-            t = d.model.transitions[arc.target]
-        else
-            p = d.model.places[arc.target]
-            t = d.model.transitions[arc.source]
-        end
-    end
-
-    # REVIEW: use the new bool functions
+    
+    # Determine source and target positions
     if haskey(d.model.places, arc.source)
         p = d.model.places[arc.source]
         t = d.model.transitions[arc.target]
-        line(d, p.x, p.y, t.x, t.y, extra)
-        mid_x = (p.x + t.x) / 2
-        mid_y = (p.y + t.y) / 2 - 8
+        src_x, src_y = p.x, p.y
+        trg_x, trg_y = t.x, t.y
+        src_is_place = true
     else
         p = d.model.places[arc.target]
         t = d.model.transitions[arc.source]
-        line(d, t.x, t.y, p.x, p.y, extra)
-        mid_x = (t.x + p.x) / 2
-        mid_y = (t.y + p.y) / 2 - 8
+        src_x, src_y = t.x, t.y
+        trg_x, trg_y = p.x, p.y
+        src_is_place = false
     end
-
-    weight = isnothing(arc.weight) ? 1 : arc.weight
-    text(d, Int(round(mid_x - 4)), Int(round(mid_y + 4)), "$weight", "font-size=\"small\"")
+    
+    # Calculate arc endpoints with padding
+    pad_src = src_is_place ? 18 : 17
+    pad_trg = src_is_place ? 17 : 18
+    
+    dx = trg_x - src_x
+    dy = trg_y - src_y
+    dist = sqrt(dx*dx + dy*dy)
+    if dist == 0
+        dist = 1
+    end
+    ux = dx / dist
+    uy = dy / dist
+    
+    tip_offset = arc.inhibit_transition ? 8 : 7.2
+    ex = src_x + ux * pad_src
+    ey = src_y + uy * pad_src
+    fx = trg_x - ux * (pad_trg + tip_offset)
+    fy = trg_y - uy * (pad_trg + tip_offset)
+    
+    # Draw arc line
+    line(d, Int(round(ex)), Int(round(ey)), Int(round(fx)), Int(round(fy)), "class=\"arc\"")
+    
+    # Draw arrowhead or inhibitor
+    if arc.inhibit_transition
+        circle(d, Int(round(fx)), Int(round(fy)), 6, "class=\"inhibitor\"")
+    else
+        # Draw arrowhead
+        ahx = fx + (-ux * 8 - uy * 3.6)
+        ahy = fy + (-uy * 8 + ux * 3.6)
+        bhx = fx + (-ux * 8 + uy * 3.6)
+        bhy = fy + (-uy * 8 - ux * 3.6)
+        write_element(d, "<path d=\"M $(Int(round(fx))) $(Int(round(fy))) L $(Int(round(ahx))) $(Int(round(ahy))) L $(Int(round(bhx))) $(Int(round(bhy))) Z\" class=\"arrowhead\"/>")
+    end
+    
+    # Draw weight badge
+    mid_x = (ex + fx) / 2
+    mid_y = (ey + fy) / 2
+    
+    # Sum array weights for display
+    weight = isempty(arc.weight) ? 1 : sum(arc.weight)
+    
+    circle(d, Int(round(mid_x)), Int(round(mid_y)), 10, "class=\"weight-bg\"")
+    text(d, Int(round(mid_x)), Int(round(mid_y)), string(weight), "class=\"weight-badge\"")
+    
     gend(d)
 end
 
 function transition_element(d::Display, label::String, transition::Transition)
     group(d)
-    x, y = transition.x - 17, transition.y - 17
-    rect(d, x, y, 30, 30, "stroke=\"#000000\" fill=\"#ffffff\" rx=\"4\"")
-    text(d, x, y - 8, label, "font-size=\"small\"")
+    x, y = transition.x - 15, transition.y - 15
+    rect(d, x, y, 30, 30, "class=\"transition\" rx=\"4\"")
+    
+    # Display label (use label_text if available, otherwise use label)
+    display_label = isnothing(transition.label_text) ? label : transition.label_text
+    text(d, transition.x, transition.y - 20, display_label, "class=\"label-text\"")
     gend(d)
 end
 
@@ -370,22 +493,90 @@ end
 
 function to_html(net::Pflow)::String
     d = Display(net)
-    max_x = max(
-        maximum([p.x for (_, p) in net.places]),
-        maximum([t.x for (_, t) in net.transitions])
-    ) + 100
-    max_y = max(
-        maximum([p.y for (_, p) in net.places]),
-        maximum([t.y for (_, t) in net.transitions])
-    ) + 100
-    new_svg_image(d, max_x, max_y)
+    
+    # Calculate bounds matching pflow-xyz style
+    if isempty(net.places) && isempty(net.transitions)
+        min_x, min_y, max_x, max_y = 0, 0, 100, 100
+    else
+        min_x = min_y = typemax(Int)
+        max_x = max_y = typemin(Int)
+        
+        for (_, p) in net.places
+            min_x = min(min_x, p.x)
+            max_x = max(max_x, p.x)
+            min_y = min(min_y, p.y)
+            max_y = max(max_y, p.y)
+        end
+        
+        for (_, t) in net.transitions
+            min_x = min(min_x, t.x)
+            max_x = max(max_x, t.x)
+            min_y = min(min_y, t.y)
+            max_y = max(max_y, t.y)
+        end
+        
+        # Add padding
+        padding = 50
+        min_x -= padding
+        min_y -= padding
+        max_x += padding
+        max_y += padding
+    end
+    
+    width = max_x - min_x
+    height = max_y - min_y
+    
+    # Minimum size
+    width = max(width, 100)
+    height = max(height, 100)
+    
+    write(d.buffer, "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$min_x $min_y $width $height\" width=\"$width\" height=\"$height\">")
+    write_defs(d)
     render(d)
     return to_html(d)
 end
 
 function to_svg(net::Pflow)::String
     d = Display(net)
-    new_svg_image(d)
+    
+    # Calculate bounds matching pflow-xyz style
+    if isempty(net.places) && isempty(net.transitions)
+        min_x, min_y, max_x, max_y = 0, 0, 100, 100
+    else
+        min_x = min_y = typemax(Int)
+        max_x = max_y = typemin(Int)
+        
+        for (_, p) in net.places
+            min_x = min(min_x, p.x)
+            max_x = max(max_x, p.x)
+            min_y = min(min_y, p.y)
+            max_y = max(max_y, p.y)
+        end
+        
+        for (_, t) in net.transitions
+            min_x = min(min_x, t.x)
+            max_x = max(max_x, t.x)
+            min_y = min(min_y, t.y)
+            max_y = max(max_y, t.y)
+        end
+        
+        # Add padding
+        padding = 50
+        min_x -= padding
+        min_y -= padding
+        max_x += padding
+        max_y += padding
+    end
+    
+    width = max_x - min_x
+    height = max_y - min_y
+    
+    # Minimum size
+    width = max(width, 100)
+    height = max(height, 100)
+    
+    write(d.buffer, "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$min_x $min_y $width $height\" width=\"$width\" height=\"$height\">")
+    write_defs(d)
     render(d)
     return String(take!(d.buffer))
 end

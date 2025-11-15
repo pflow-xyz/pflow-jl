@@ -1,6 +1,6 @@
 # PFlow-jl
 
-Pflow provides a wrapper to build out Petri-net models for Petri.jl.
+Pflow provides a wrapper to build out Petri-net models for Petri.jl with support for colored Petri nets and JSON-LD output format.
 
 This wrapper makes it easier to compose Petri-nets with code, which allows faster iteration and more complex design.
 
@@ -12,9 +12,27 @@ Beta - works but visualization needs polish
 
 ## Features
 - Simplifies the composition of Petri-net models
+- **NEW: Support for colored Petri nets with array-based token representations**
+- **NEW: JSON-LD compatible output format matching pflow-xyz ecosystem**
+- **NEW: Enhanced SVG output with CSS styling matching pflow-xyz**
 - Enhances SVG output for visualization in IJulia / IPython Notebooks
 - Pflow models convert to html, svg, json
-- Export to Petri.jl Model for analysis
+- Export to Petri.jl Model for analysis (colored nets automatically sum to token counts)
+- Compatible with [pflow.xyz/editor](https://pflow.xyz/editor)
+
+## What's New
+
+### Colored Petri Nets
+Places, transitions, and arcs now support array-based data for colored tokens:
+- `Place.initial`: `Vector{Int}` for multi-color token counts
+- `Place.capacity`: `Vector{Float64}` for color-specific capacity limits
+- `Arc.weight`: `Vector{Int}` for color-specific arc weights
+- `Pflow.token`: `Vector{String}` for token color definitions (URLs or hex colors)
+
+### JSON-LD Format
+JSON output now includes `@type` fields for semantic web compatibility and matches the pflow-xyz data format.
+
+See [COLORED_PETRI_NETS.md](COLORED_PETRI_NETS.md) for detailed documentation and examples.
 
 ## Installation
 To install PFlow.jl, use the following command in Julia:
