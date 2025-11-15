@@ -41,3 +41,26 @@ build: install resolve ## Install and resolve dependencies
 	@echo "Project built successfully"
 
 all: build test ## Build and test the project
+
+# Docker targets
+docker-build: ## Build the Docker image
+	docker-compose build
+
+docker-up: ## Start the Docker container with Jupyter
+	docker-compose up
+
+docker-down: ## Stop the Docker container
+	docker-compose down
+
+docker-rebuild: ## Rebuild and start the Docker container
+	docker-compose up --build
+
+docker-shell: ## Open a shell in the Docker container
+	docker-compose run --rm jupyter /bin/bash
+
+docker-julia: ## Start Julia REPL in the Docker container
+	docker-compose run --rm jupyter julia --project=.
+
+docker-clean: ## Stop containers and remove volumes
+	docker-compose down -v
+

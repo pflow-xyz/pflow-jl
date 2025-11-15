@@ -44,6 +44,30 @@ Pkg.add(PackageSpec(url="https://github.com/pflow-xyz/pflow-jl.git"))
 ### Known Issue with Julia 1.12
 There is a compatibility issue with the Petri.jl dependency and Julia 1.12. After installation, you may need to apply a workaround. See [WORKAROUND.md](WORKAROUND.md) for details.
 
+## Docker Setup
+You can run PFlow.jl with Jupyter Notebook using Docker. This provides a pre-configured environment without needing to install Julia or dependencies locally.
+
+### Quick Start with Docker
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/pflow-xyz/pflow-jl.git
+   cd pflow-jl
+   ```
+
+2. Start the Jupyter notebook server using docker-compose:
+   ```bash
+   docker-compose up
+   ```
+
+3. Open your browser and navigate to:
+   ```
+   http://localhost:8888
+   ```
+
+4. Open `example.ipynb` to see PFlow.jl in action!
+
+For detailed Docker instructions, troubleshooting, and advanced configuration, see [DOCKER.md](DOCKER.md).
+
 ## Usage
 Here is a basic example of how to use PFlow.jl to define a simple Petri net model for solving a knapsack problem:
 
