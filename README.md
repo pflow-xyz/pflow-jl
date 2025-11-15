@@ -41,6 +41,9 @@ using Pkg
 Pkg.add(PackageSpec(url="https://github.com/pflow-xyz/pflow-jl.git"))
 ```
 
+### Known Issue with Julia 1.12
+There is a compatibility issue with the Petri.jl dependency and Julia 1.12. After installation, you may need to apply a workaround. See [WORKAROUND.md](WORKAROUND.md) for details.
+
 ## Usage
 Here is a basic example of how to use PFlow.jl to define a simple Petri net model for solving a knapsack problem:
 
