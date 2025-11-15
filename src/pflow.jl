@@ -356,6 +356,27 @@ function write_element(d::Display, element::String)
     write(d.buffer, element)
 end
 
+# Helper function to check if a transition is enabled
+function is_transition_enabled(model::Pflow, transition_label::String)::Bool
+    # A transition is enabled if all input places have sufficient tokens
+    for arc in model.arcs
+        # Check if this arc goes from a place to this transition (consume arc)
+        if arc.target == transition_label && haskey(model.places, arc.source)
+            place = model.places[arc.source]
+            # Sum tokens in the place
+            tokens = isempty(place.initial) ? 0 : sum(place.initial)
+            # Sum weight required by the arc
+            weight = isempty(arc.weight) ? 1 : sum(arc.weight)
+            
+            # If not enough tokens, transition is not enabled
+            if tokens < weight
+                return false
+            end
+        end
+    end
+    return true
+end
+
 function render(d::Display)
     for arc in d.model.arcs
         arc_element(d, arc)
@@ -383,8 +404,9 @@ function place_element(d::Display, label::String, place::Place)
     circle(d, place.x, place.y, 16, "class=\"$place_class\"")
     
     # Display label (use label_text if available, otherwise use label)
+    # Position label below the place circle
     display_label = isnothing(place.label_text) ? label : place.label_text
-    text(d, place.x, place.y - 20, display_label, "class=\"label-text\"")
+    text(d, place.x, place.y + 28, display_label, "class=\"label-text\"")
     
     x = place.x
     y = place.y
@@ -468,11 +490,17 @@ end
 function transition_element(d::Display, label::String, transition::Transition)
     group(d)
     x, y = transition.x - 15, transition.y - 15
-    rect(d, x, y, 30, 30, "class=\"transition\" rx=\"4\"")
+    
+    # Check if transition is enabled
+    is_enabled = is_transition_enabled(d.model, label)
+    transition_class = is_enabled ? "transition transition-active" : "transition"
+    
+    rect(d, x, y, 30, 30, "class=\"$transition_class\" rx=\"4\"")
     
     # Display label (use label_text if available, otherwise use label)
+    # Position label below the transition rectangle
     display_label = isnothing(transition.label_text) ? label : transition.label_text
-    text(d, transition.x, transition.y - 20, display_label, "class=\"label-text\"")
+    text(d, transition.x, transition.y + 28, display_label, "class=\"label-text\"")
     gend(d)
 end
 

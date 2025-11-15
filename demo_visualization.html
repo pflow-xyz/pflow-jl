@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Petri Net Visualization Demo</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 40px;
+            background: #f5f5f5;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .description {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 30px;
+        }
+        .description h2 {
+            margin-top: 0;
+            color: #2c5aa0;
+        }
+        .description ul {
+            margin: 0;
+        }
+        .description li {
+            margin: 8px 0;
+        }
+        .svg-container {
+            background: white;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        .legend {
+            margin-top: 30px;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 6px;
+        }
+        .legend h3 {
+            margin-top: 0;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .legend-color {
+            width: 30px;
+            height: 30px;
+            border: 2px solid #333;
+            border-radius: 4px;
+            margin-right: 15px;
+        }
+        .legend-color.enabled {
+            background: #62fa75;
+        }
+        .legend-color.disabled {
+            background: #ffffff;
+        }
+        code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Improved Petri Net Visualization</h1>
+        
+        <div class="description">
+            <h2>Changes Implemented</h2>
+            <ul>
+                <li>✅ <strong>Labels positioned below elements</strong> - Changed from <code>y - 20</code> to <code>y + 28</code></li>
+                <li>✅ <strong>Enabled transitions highlighted in green</strong> - Color #62fa75</li>
+                <li>✅ <strong>Smart enabled detection</strong> - Transitions are enabled when all input places have sufficient tokens</li>
+            </ul>
+        </div>
+
+        <div class="svg-container">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 450 400" width="450" height="400">
+                <defs>
+                    <style>
+                        .place { fill: #fff; stroke: #333; stroke-width: 2; }
+                        .transition { fill: #ffffff; stroke: #000; stroke-width: 1; }
+                        .transition-active { fill: #62fa75; stroke: #000; }
+                        .arc { stroke: #cfcfcf; stroke-width: 1; fill: none; }
+                        .arrowhead { fill: #cfcfcf; }
+                        .token-dot { fill: #333; }
+                        .token-text { font-family: system-ui, Arial; font-size: 12px; fill: #333; text-anchor: middle; dominant-baseline: middle; }
+                        .weight-badge { font-family: system-ui, Arial; font-size: 10px; fill: #666; text-anchor: middle; dominant-baseline: middle; }
+                        .weight-bg { fill: #fafafa; stroke: #ddd; stroke-width: 1; }
+                        .label-text { font-family: system-ui, Arial; font-size: 11px; fill: #333; text-anchor: middle; dominant-baseline: hanging; }
+                    </style>
+                </defs>
+
+                <!-- Arc from p1 to t1 -->
+                <g>
+                    <line x1="116" y1="150" x2="168" y2="150" class="arc"/>
+                    <path d="M 175 150 L 167 146 L 167 153 Z" class="arrowhead"/>
+                    <circle cx="145" cy="150" r="10" class="weight-bg"/>
+                    <text x="145" y="150" class="weight-badge">1</text>
+                </g>
+
+                <!-- Arc from t1 to p3 -->
+                <g>
+                    <line x1="217" y1="150" x2="268" y2="150" class="arc"/>
+                    <path d="M 275 150 L 267 146 L 267 153 Z" class="arrowhead"/>
+                    <circle cx="245" cy="150" r="10" class="weight-bg"/>
+                    <text x="245" y="150" class="weight-badge">1</text>
+                </g>
+
+                <!-- Arc from p2 to t2 -->
+                <g>
+                    <line x1="116" y1="250" x2="168" y2="250" class="arc"/>
+                    <path d="M 175 250 L 167 246 L 167 253 Z" class="arrowhead"/>
+                    <circle cx="145" cy="250" r="10" class="weight-bg"/>
+                    <text x="145" y="250" class="weight-badge">1</text>
+                </g>
+
+                <!-- Arc from t2 to p4 -->
+                <g>
+                    <line x1="217" y1="250" x2="268" y2="250" class="arc"/>
+                    <path d="M 275 250 L 267 246 L 267 253 Z" class="arrowhead"/>
+                    <circle cx="245" cy="250" r="10" class="weight-bg"/>
+                    <text x="245" y="250" class="weight-badge">1</text>
+                </g>
+
+                <!-- Place p1 (has 2 tokens - input to enabled t1) -->
+                <g>
+                    <circle cx="100" cy="150" r="16" class="place"/>
+                    <text x="100" y="178" class="label-text">p1</text>
+                    <text x="100" y="150" class="token-text">2</text>
+                </g>
+
+                <!-- Place p2 (has 0 tokens - input to disabled t2) -->
+                <g>
+                    <circle cx="100" cy="250" r="16" class="place"/>
+                    <text x="100" y="278" class="label-text">p2</text>
+                </g>
+
+                <!-- Place p3 (output) -->
+                <g>
+                    <circle cx="291" cy="150" r="16" class="place"/>
+                    <text x="291" y="178" class="label-text">p3</text>
+                </g>
+
+                <!-- Place p4 (output) -->
+                <g>
+                    <circle cx="291" cy="250" r="16" class="place"/>
+                    <text x="291" y="278" class="label-text">p4</text>
+                </g>
+
+                <!-- Transition t1 (ENABLED - green) -->
+                <g>
+                    <rect x="185" y="135" width="30" height="30" class="transition transition-active" rx="4"/>
+                    <text x="200" y="178" class="label-text">t1</text>
+                </g>
+
+                <!-- Transition t2 (DISABLED - white) -->
+                <g>
+                    <rect x="185" y="235" width="30" height="30" class="transition" rx="4"/>
+                    <text x="200" y="278" class="label-text">t2</text>
+                </g>
+            </svg>
+        </div>
+
+        <div class="legend">
+            <h3>Legend</h3>
+            <div class="legend-item">
+                <div class="legend-color enabled"></div>
+                <div>
+                    <strong>Enabled Transition (Green)</strong><br>
+                    <small>Has sufficient tokens in all input places. Example: t1 is enabled because p1 has 2 tokens (≥1 required)</small>
+                </div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color disabled"></div>
+                <div>
+                    <strong>Disabled Transition (White)</strong><br>
+                    <small>Lacks sufficient tokens in one or more input places. Example: t2 is disabled because p2 has 0 tokens (needs 1)</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="description" style="margin-top: 30px;">
+            <h2>Test Scenario</h2>
+            <ul>
+                <li><strong>p1</strong> has 2 tokens → provides input to t1</li>
+                <li><strong>p2</strong> has 0 tokens → provides input to t2</li>
+                <li><strong>t1</strong> needs 1 token from p1 → <span style="color: #28a745;">ENABLED (shown in green)</span></li>
+                <li><strong>t2</strong> needs 1 token from p2 → <span style="color: #dc3545;">DISABLED (shown in white)</span></li>
+                <li>All labels appear <strong>below</strong> their respective elements</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
