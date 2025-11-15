@@ -2,7 +2,7 @@
 
 julia_version = "1.12.1"
 manifest_format = "2.0"
-project_hash = "a3485e5ee631f57663ccc71ed04029d588146b50"
+project_hash = "09c892d3389e9864f4416fc92ea39aff55e70443"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "8be2ae325471fc20b11c27bb34b518541d07dd3a"
@@ -1924,7 +1924,7 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 version = "17.5.0+2"
 
 [[deps.pflow]]
-deps = ["Accessors", "Base64", "JSON", "LabelledArrays", "Petri", "SHA"]
+deps = ["Accessors", "Base64", "JSON", "LabelledArrays", "SHA"]
 path = "."
 uuid = "b8798a89-cbc6-4f98-8c2b-e997259ae71b"
 version = "0.1.0"
