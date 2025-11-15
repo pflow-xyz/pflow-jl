@@ -15,7 +15,6 @@
 **/.ipynb_checkpoints/
 
 # Julia artifacts and cache
-Manifest.toml
 *.ji
 
 # Documentation build artifacts
