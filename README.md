@@ -160,3 +160,19 @@ plot!(sol.t, sol[:value, :], label="Value")
 value = round(sol[:value, end], digits=3)
 annotate!(4, value, text("Value: $value", 10, :left))
 ```
+
+## Note about CI Docker build workaround
+
+Due to a transient upstream compatibility issue between SteadyStateDiffEq and the NLsolve/termination API, our CI Docker build includes a temporary workaround that patches the installed copy of `Petri` inside the build container to avoid precompilation failures.
+
+This is a targeted, temporary fix applied only to the package copy inside CI images (the repository itself is not modifying upstream registry sources). The helper script is located at `tools/patch_petri.sh`.
+
+Once upstream packages release compatible versions (or Petri updates its references), remove the call to `tools/patch_petri.sh` from the `Dockerfile` and delete the script.
+
+To test locally (Julia 1.12):
+
+```bash
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+./tools/patch_petri.sh
+julia --project=. -e 'using Pkg; Pkg.precompile()'
+```
