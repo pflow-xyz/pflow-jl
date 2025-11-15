@@ -79,8 +79,9 @@ end
 
             # REVIEW: copy and paste json to pflow.xyz/editor to simulate network
             json_data = to_json(m)
-            # test it starts with {"modelType":"petriNet
-            @test startswith(json_data, "{\"modelType\":\"petriNet")
+            # test it starts with {"@context":"https://pflow.xyz/schema
+            @test occursin("\"@context\":\"https://pflow.xyz/schema\"", replace(json_data, " " => ""))
+            @test occursin("\"@type\":\"PetriNet\"", replace(json_data, " " => ""))
 
             svg_data = to_svg(m)
             # test it starts with <svg

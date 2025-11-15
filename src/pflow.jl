@@ -4,6 +4,7 @@ using JSON
 using LabelledArrays
 using Petri
 using Base64
+using SHA
 
 # Export main types
 export Pflow, StateMachine, Place, Transition, Arrow
@@ -284,25 +285,65 @@ function to_json(net::Pflow)::String
     arcs_arr = []
     for arc in net.arcs
         arc_obj = Dict{String, Any}(
-            "@type" => "Arc",
+            "@type" => "Arrow",
             "source" => arc.source,
             "target" => arc.target,
-            "weight" => arc.weight
+            "weight" => arc.weight,
+            "inhibitTransition" => arc.inhibit_transition
         )
-        if arc.inhibit_transition
-            arc_obj["inhibitTransition"] = true
-        end
         push!(arcs_arr, arc_obj)
     end
     
-    JSON.json(Dict(
-        "modelType" => net.model_type,
-        "version" => net.version,
+    # Create the data structure first without @id to compute hash
+    data = Dict{String, Any}(
         "places" => places_dict,
         "transitions" => transitions_dict,
         "arcs" => arcs_arr,
         "token" => net.token
-    ))
+    )
+    
+    # Generate a content identifier (CID) from the JSON data
+    data_json = JSON.json(data)
+    hash_bytes = sha256(data_json)
+    cid = "z" * bytes2hex(hash_bytes[1:20])  # Use first 20 bytes for shorter ID
+    
+    # Add JSON-LD fields
+    result = Dict{String, Any}(
+        "@context" => "https://pflow.xyz/schema",
+        "@id" => cid,
+        "@type" => "PetriNet",
+        "@version" => "1.1",
+        "places" => places_dict,
+        "transitions" => transitions_dict,
+        "arcs" => arcs_arr,
+        "token" => net.token
+    )
+    
+    JSON.json(result)
+end
+
+function urlencode(str::String)::String
+    # URL encode a string by converting each character
+    result = IOBuffer()
+    for c in str
+        if c in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~"
+            write(result, c)
+        else
+            # Convert to hex
+            write(result, '%')
+            write(result, uppercase(string(Int(c), base=16, pad=2)))
+        end
+    end
+    return String(take!(result))
+end
+
+function to_pflow_url(net::Pflow)::String
+    json_str = to_json(net)
+    
+    # URL encode the JSON data
+    encoded_data = urlencode(json_str)
+    
+    return "https://pflow.xyz/?data=$(encoded_data)"
 end
 
 mutable struct Display
@@ -509,10 +550,49 @@ function end_svg(d::Display)
 end
 
 function to_html(d::Display)::String
+    # Generate pflow.xyz URL
+    pflow_url = to_pflow_url(d.model)
+    
     return """
     <!DOCTYPE html>
     <html>
+        <head>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                }
+                .pflow-button {
+                    position: fixed;
+                    top: 10px;
+                    left: 10px;
+                    z-index: 1000;
+                    background: white;
+                    border: 2px solid #333;
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                    cursor: pointer;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                    transition: all 0.2s;
+                    text-decoration: none;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .pflow-button:hover {
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+                    transform: translateY(-1px);
+                }
+                .pflow-button img {
+                    height: 24px;
+                    display: block;
+                }
+            </style>
+        </head>
         <body>
+            <a href="$(pflow_url)" target="_blank" class="pflow-button" title="Open in pflow.xyz">
+                <img src="https://cdn.jsdelivr.net/gh/pflow-xyz/pflow-xyz@latest/public/title.svg" alt="pflow">
+            </a>
             $(String(take!(d.buffer)))
         </body>
     </html>
