@@ -12,3 +12,9 @@ Petri = "4259d249-1051-49fa-8328-3f8ab9391c33"
 
 [compat]
 Accessors = "0.1.39"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
