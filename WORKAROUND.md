@@ -27,6 +27,18 @@ Alternatively, use the provided patch script:
 sh tools/patch_petri.sh
 ```
 
+### Testing the Patch
+To verify the patch works correctly in your environment:
+```bash
+sh tools/test_patch.sh
+```
+
+This script will:
+1. Install dependencies using `Pkg.instantiate()`
+2. Apply the patch using `tools/patch_petri.sh`
+3. Verify precompilation succeeds
+4. Verify pflow can be loaded
+
 ## Impact
 This workaround disables the solver functionality from Petri.jl. Since pflow only uses `Petri.Model` for type conversion and does not use the solver functions, this does not affect pflow's functionality.
 
