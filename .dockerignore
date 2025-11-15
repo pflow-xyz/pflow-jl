@@ -15,7 +15,7 @@
 **/.ipynb_checkpoints/
 
 # Julia artifacts and cache
-Manifest.toml
+# Note: Manifest.toml is included to ensure reproducible builds
 *.ji
 
 # Documentation build artifacts

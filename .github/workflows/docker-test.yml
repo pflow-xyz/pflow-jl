@@ -7,12 +7,18 @@ on:
       - 'Dockerfile'
       - 'docker-compose.yml'
       - '.dockerignore'
+      - 'Project.toml'
+      - 'Manifest.toml'
+      - 'src/**'
   pull_request:
     branches: [ main, develop ]
     paths:
       - 'Dockerfile'
       - 'docker-compose.yml'
       - '.dockerignore'
+      - 'Project.toml'
+      - 'Manifest.toml'
+      - 'src/**'
 
 jobs:
   docker-build:
@@ -22,6 +28,22 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+    
+    - name: Set up Julia
+      uses: julia-actions/setup-julia@v2
+      with:
+        version: '1.12.1'
+    
+    - name: Verify Julia version matches Manifest
+      run: |
+        MANIFEST_JULIA=$(grep "julia_version" Manifest.toml | cut -d'"' -f2)
+        EXPECTED_JULIA="1.12.1"
+        echo "Manifest Julia version: $MANIFEST_JULIA"
+        echo "Expected Julia version: $EXPECTED_JULIA"
+        if [ "$MANIFEST_JULIA" != "$EXPECTED_JULIA" ]; then
+          echo "Warning: Manifest was generated with Julia $MANIFEST_JULIA but we're using $EXPECTED_JULIA"
+          echo "This may cause compatibility issues. Consider regenerating Manifest.toml."
+        fi
     
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
