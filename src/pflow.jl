@@ -563,14 +563,9 @@ function to_html(d::Display)::String
                     padding: 0;
                 }
                 .pflow-container {
-                    position: relative;
                     display: inline-block;
                 }
                 .pflow-button {
-                    position: absolute;
-                    top: 10px;
-                    left: 10px;
-                    z-index: 1000;
                     background: white;
                     border: 2px solid #333;
                     border-radius: 8px;
@@ -579,9 +574,10 @@ function to_html(d::Display)::String
                     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
                     transition: all 0.2s;
                     text-decoration: none;
-                    display: flex;
+                    display: inline-flex;
                     align-items: center;
                     gap: 8px;
+                    margin-bottom: 10px;
                 }
                 .pflow-button:hover {
                     box-shadow: 0 4px 12px rgba(0,0,0,0.25);
@@ -598,6 +594,7 @@ function to_html(d::Display)::String
                 <a href="$(pflow_url)" target="_blank" class="pflow-button" title="Open in pflow.xyz">
                     <img src="https://cdn.jsdelivr.net/gh/pflow-xyz/pflow-xyz@latest/public/title.svg" alt="pflow">
                 </a>
+                <br>
                 $(String(take!(d.buffer)))
             </div>
         </body>
