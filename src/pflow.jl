@@ -562,8 +562,12 @@ function to_html(d::Display)::String
                     margin: 0;
                     padding: 0;
                 }
+                .pflow-container {
+                    position: relative;
+                    display: inline-block;
+                }
                 .pflow-button {
-                    position: fixed;
+                    position: absolute;
                     top: 10px;
                     left: 10px;
                     z-index: 1000;
@@ -590,10 +594,12 @@ function to_html(d::Display)::String
             </style>
         </head>
         <body>
-            <a href="$(pflow_url)" target="_blank" class="pflow-button" title="Open in pflow.xyz">
-                <img src="https://cdn.jsdelivr.net/gh/pflow-xyz/pflow-xyz@latest/public/title.svg" alt="pflow">
-            </a>
-            $(String(take!(d.buffer)))
+            <div class="pflow-container">
+                <a href="$(pflow_url)" target="_blank" class="pflow-button" title="Open in pflow.xyz">
+                    <img src="https://cdn.jsdelivr.net/gh/pflow-xyz/pflow-xyz@latest/public/title.svg" alt="pflow">
+                </a>
+                $(String(take!(d.buffer)))
+            </div>
         </body>
     </html>
     """
