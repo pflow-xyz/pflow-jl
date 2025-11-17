@@ -12,6 +12,8 @@ Beta - works but visualization needs polish
 
 ## Features
 - Simplifies the composition of Petri-net models
+- **NEW: Parse JSON-LD format to construct Pflow models with `from_json()`**
+- **NEW: Merge multiple models together with `merge()` or `+` operator**
 - **NEW: Support for colored Petri nets with array-based token representations**
 - **NEW: JSON-LD compatible output format matching pflow-xyz ecosystem**
 - **NEW: Enhanced SVG output with CSS styling matching pflow-xyz**
@@ -21,6 +23,25 @@ Beta - works but visualization needs polish
 - Compatible with [pflow.xyz/editor](https://pflow.xyz/editor)
 
 ## What's New
+
+### JSON-LD Parsing
+Parse JSON-LD format from pflow.xyz directly into Pflow models:
+```julia
+json_str = """{ "@type": "PetriNet", "places": {...}, "transitions": {...} }"""
+model = from_json(json_str)
+```
+Supports all pflow.xyz JSON-LD fields including places, transitions, arcs, token colors, and inhibitor arcs.
+
+### Model Merging
+Combine multiple Pflow models into one:
+```julia
+# Using merge function
+combined = merge(model1, model2)
+
+# Or using + operator
+combined = model1 + model2
+```
+Automatically handles name conflicts and preserves all model properties including token colors and inhibitor arcs.
 
 ### Colored Petri Nets
 Places, transitions, and arcs now support array-based data for colored tokens:
@@ -32,7 +53,7 @@ Places, transitions, and arcs now support array-based data for colored tokens:
 ### JSON-LD Format
 JSON output now includes `@type` fields for semantic web compatibility and matches the pflow-xyz data format.
 
-See [COLORED_PETRI_NETS.md](COLORED_PETRI_NETS.md) for detailed documentation and examples.
+See [COLORED_PETRI_NETS.md](COLORED_PETRI_NETS.md) for detailed documentation on colored nets and [USAGE_GUIDE.md](USAGE_GUIDE.md) for JSON-LD parsing and model merging examples.
 
 ## Installation
 To install PFlow.jl, use the following command in Julia:
@@ -135,4 +156,76 @@ plot!(sol.t, sol[:value, :], label="Value")
 
 value = round(sol[:value, end], digits=3)
 annotate!(4, value, text("Value: $value", 10, :left))
+```
+
+## Parsing JSON-LD and Model Merging
+
+### Parse JSON-LD from pflow.xyz
+
+```julia
+using PFlow: from_json
+
+# JSON-LD string from pflow.xyz
+json_str = """{
+  "@context": "https://pflow.xyz/schema",
+  "@type": "PetriNet",
+  "@version": "1.1",
+  "places": {
+    "p1": {
+      "@type": "Place",
+      "capacity": [10],
+      "initial": [5],
+      "x": 100,
+      "y": 100
+    }
+  },
+  "transitions": {
+    "t1": {
+      "@type": "Transition",
+      "x": 200,
+      "y": 100
+    }
+  },
+  "arcs": [
+    {
+      "@type": "Arrow",
+      "source": "p1",
+      "target": "t1",
+      "weight": [1],
+      "inhibitTransition": false
+    }
+  ],
+  "token": ["https://pflow.xyz/tokens/black"]
+}"""
+
+# Parse into a Pflow model
+model = from_json(json_str)
+```
+
+### Merge Multiple Models
+
+```julia
+using PFlow: Pflow, place!, transition!, arc!, merge
+
+# Create producer model
+producer = Pflow()
+place!(producer, "source", initial=10, x=50, y=100)
+transition!(producer, "produce", x=100, y=100)
+arc!(producer, source="source", target="produce", weight=1)
+
+# Create consumer model
+consumer = Pflow()
+place!(consumer, "sink", initial=0, x=200, y=100)
+transition!(consumer, "consume", x=150, y=100)
+arc!(consumer, source="sink", target="consume", weight=1)
+
+# Merge models
+pipeline = merge(producer, consumer)
+# Or use + operator: pipeline = producer + consumer
+
+# The merged model contains all places, transitions, and arcs
+# Name conflicts are automatically resolved with suffixes
+```
+
+See [examples/json_and_merge_example.jl](examples/json_and_merge_example.jl) for more examples.
 ```

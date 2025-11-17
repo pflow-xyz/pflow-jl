@@ -107,6 +107,9 @@ end
     
     # Include colored Petri net tests
     include("test_colored_nets.jl")
+    
+    # Include JSON-LD parsing and model merging tests
+    include("test_json_and_merge.jl")
 
 end
 
