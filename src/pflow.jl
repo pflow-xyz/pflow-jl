@@ -13,7 +13,7 @@ export Pflow, StateMachine, Place, Transition, Arrow
 export place!, transition!, arc!, guard!
 
 # Export conversion functions
-export to_json, to_svg, to_html, to_model, to_state, set_state, set_rates, set_state!, set_rates!
+export to_json, from_json, to_svg, to_html, to_model, to_state, set_state, set_rates, set_state!, set_rates!
 
 # Export state machine functions
 export transform!
@@ -320,6 +320,76 @@ function to_json(net::Pflow)::String
     )
     
     JSON.json(result)
+end
+
+function from_json(json_str::String)::Pflow
+    data = JSON.parse(json_str)
+    return from_json(data)
+end
+
+function from_json(data::Dict)::Pflow
+    # Create a new Pflow model
+    net = Pflow()
+    
+    # Extract model type and version if present
+    if haskey(data, "@type")
+        net.model_type = data["@type"]
+    end
+    if haskey(data, "@version")
+        net.version = data["@version"]
+    end
+    
+    # Parse token colors
+    if haskey(data, "token")
+        net.token = data["token"]
+    end
+    
+    # Parse places
+    if haskey(data, "places")
+        for (label, place_data) in data["places"]
+            offset = get(place_data, "offset", 0)
+            initial = get(place_data, "initial", Int[])
+            capacity = get(place_data, "capacity", Float64[])
+            x = get(place_data, "x", 0)
+            y = get(place_data, "y", 0)
+            label_text = get(place_data, "label", nothing)
+            
+            place!(net, label, offset=offset, initial=initial, capacity=capacity, x=x, y=y, label_text=label_text)
+        end
+    end
+    
+    # Parse transitions
+    if haskey(data, "transitions")
+        for (label, trans_data) in data["transitions"]
+            offset = get(trans_data, "offset", 0)
+            role = get(trans_data, "role", "default")
+            x = get(trans_data, "x", 0)
+            y = get(trans_data, "y", 0)
+            label_text = get(trans_data, "label", nothing)
+            
+            transition!(net, label, offset=offset, role=role, x=x, y=y, label_text=label_text)
+        end
+    end
+    
+    # Parse arcs
+    if haskey(data, "arcs")
+        for arc_data in data["arcs"]
+            source = arc_data["source"]
+            target = arc_data["target"]
+            weight = get(arc_data, "weight", [1])
+            inhibit_transition = get(arc_data, "inhibitTransition", false)
+            
+            if inhibit_transition
+                # This is a guard/inhibitor arc
+                guard!(net, source, target, weight)
+            else
+                # Regular arc
+                arc!(net, source=source, target=target, weight=weight)
+            end
+        end
+    end
+    
+    return net
 end
 
 function urlencode(str::String)::String
@@ -711,5 +781,96 @@ end
 function group(d::Display)
     write_element(d, "<g>")
 end
+
+# Merge two Pflow models into a new model
+function Base.merge(m1::Pflow, m2::Pflow)::Pflow
+    result = Pflow()
+    
+    # Merge model type and version (use m1's values)
+    result.model_type = m1.model_type
+    result.version = m1.version
+    
+    # Merge token colors (union of both, preserving order)
+    result.token = union(m1.token, m2.token)
+    
+    # Helper function to generate unique name
+    function make_unique(name::String, existing::Dict)::String
+        if !haskey(existing, name)
+            return name
+        end
+        counter = 1
+        while haskey(existing, "$(name)_$(counter)")
+            counter += 1
+        end
+        return "$(name)_$(counter)"
+    end
+    
+    # Merge places from m1
+    for (label, place) in m1.places
+        result.places[label] = Place(
+            label, place.offset, place.initial, place.capacity,
+            place.x, place.y, place.label_text
+        )
+    end
+    
+    # Merge places from m2 (with unique names)
+    for (label, place) in m2.places
+        new_label = make_unique(label, result.places)
+        result.places[new_label] = Place(
+            new_label, place.offset, place.initial, place.capacity,
+            place.x, place.y, place.label_text
+        )
+    end
+    
+    # Merge transitions from m1
+    for (label, trans) in m1.transitions
+        result.transitions[label] = Transition(
+            label, trans.offset, trans.role, trans.x, trans.y, trans.label_text
+        )
+    end
+    
+    # Merge transitions from m2 (with unique names)
+    for (label, trans) in m2.transitions
+        new_label = make_unique(label, result.transitions)
+        result.transitions[new_label] = Transition(
+            new_label, trans.offset, trans.role, trans.x, trans.y, trans.label_text
+        )
+    end
+    
+    # Build mapping for renamed places/transitions from m2
+    place_mapping = Dict{String, String}()
+    for (old_label, _) in m2.places
+        place_mapping[old_label] = make_unique(old_label, m1.places)
+    end
+    
+    trans_mapping = Dict{String, String}()
+    for (old_label, _) in m2.transitions
+        trans_mapping[old_label] = make_unique(old_label, m1.transitions)
+    end
+    
+    # Merge arcs from m1
+    for arc in m1.arcs
+        push!(result.arcs, Arrow(
+            arc.source, arc.target, arc.weight, arc.consume,
+            arc.produce, arc.inhibit, arc.read, arc.inhibit_transition
+        ))
+    end
+    
+    # Merge arcs from m2 (updating references to renamed places/transitions)
+    for arc in m2.arcs
+        new_source = get(place_mapping, arc.source, get(trans_mapping, arc.source, arc.source))
+        new_target = get(place_mapping, arc.target, get(trans_mapping, arc.target, arc.target))
+        
+        push!(result.arcs, Arrow(
+            new_source, new_target, arc.weight, arc.consume,
+            arc.produce, arc.inhibit, arc.read, arc.inhibit_transition
+        ))
+    end
+    
+    return result
+end
+
+# Overload + operator for model merging
+Base.:+(m1::Pflow, m2::Pflow) = merge(m1, m2)
 
 end # module pflow
