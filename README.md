@@ -6,12 +6,22 @@ This wrapper makes it easier to compose Petri-nets with code, which allows faste
 
 See [Petri.jl](https://github.com/AlgebraicJulia/Petri.jl) for more details about model analysis.
 
+## JavaScript ODE Solver Module
+
+**NEW:** This repository now includes `psolver.js`, a pure ES6 JavaScript module that provides ODE solver functionality for Petri nets, compatible with the pflow.xyz JSON-LD schema. See [PSOLVER_README.md](PSOLVER_README.md) for details.
+
+- **Zero dependencies** - Pure JavaScript implementation
+- **Tsit5 solver** - 5th order Runge-Kutta with adaptive stepping
+- **Built-in plotting** - SVG generation without external libraries
+- **Examples included** - Interactive demos in `examples/` directory
+
 ## Status 
 
 Beta - works but visualization needs polish
 
 ## Features
 - Simplifies the composition of Petri-net models
+- **NEW: JavaScript ODE solver module (psolver.js) for browser and Node.js**
 - **NEW: Parse JSON-LD format to construct Pflow models with `from_json()`**
 - **NEW: Merge multiple models together with `merge()` or `+` operator**
 - **NEW: Support for colored Petri nets with array-based token representations**
@@ -23,6 +33,17 @@ Beta - works but visualization needs polish
 - Compatible with [pflow.xyz/editor](https://pflow.xyz/editor)
 
 ## What's New
+
+### JavaScript ODE Solver (psolver.js)
+A complete ES6 module for solving ODEs from Petri net models:
+```javascript
+import { fromJSON, setState, setRates, ODEProblem, solve, Tsit5 } from './psolver.js';
+
+const net = fromJSON(petriNetData);
+const prob = new ODEProblem(net, setState(net), [0, 10], setRates(net));
+const sol = solve(prob, Tsit5());
+```
+See [PSOLVER_README.md](PSOLVER_README.md) for full documentation and examples.
 
 ### JSON-LD Parsing
 Parse JSON-LD format from pflow.xyz directly into Pflow models:
