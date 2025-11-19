@@ -1,0 +1,36 @@
+# Git files
+.git
+.gitignore
+
+# Julia build artifacts
+Manifest.toml
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+.ipynb_checkpoints
+
+# Documentation
+*.md
+!README.md
+
+# Examples (optional, uncomment to exclude)
+# examples
+
+# Test output
+test/*.out
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Docker files (to avoid recursion)
+Dockerfile
+docker-compose.yml
+.dockerignore

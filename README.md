@@ -56,13 +56,26 @@ JSON output now includes `@type` fields for semantic web compatibility and match
 See [COLORED_PETRI_NETS.md](COLORED_PETRI_NETS.md) for detailed documentation on colored nets and [USAGE_GUIDE.md](USAGE_GUIDE.md) for JSON-LD parsing and model merging examples.
 
 ## Installation
-To install PFlow.jl, use the following command in Julia:
+
+### Option 1: Using Docker (Recommended for Quick Start)
+
+Run PFlow-jl with Jupyter notebook in a Docker container:
+
+```bash
+docker-compose up
+```
+
+Then open your browser to the URL displayed in the terminal. See [DOCKER.md](DOCKER.md) for detailed instructions.
+
+### Option 2: Local Installation
+
+To install PFlow.jl locally, use the following command in Julia:
 ```julia
 using Pkg
 Pkg.add(PackageSpec(url="https://github.com/pflow-xyz/pflow-jl.git"))
 ```
 
-### Known Issue with Julia 1.12
+#### Known Issue with Julia 1.12
 There is a compatibility issue with the Petri.jl dependency and Julia 1.12. After installation, you may need to apply a workaround. See [WORKAROUND.md](WORKAROUND.md) for details.
 
 ## Usage
