@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIR Epidemic Model - ODE Solver Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #e74c3c;
+            padding-bottom: 10px;
+        }
+        .description {
+            background: #fef5e7;
+            padding: 15px;
+            border-left: 4px solid #e74c3c;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .plot-container {
+            margin: 30px 0;
+            display: flex;
+            justify-content: center;
+            background: white;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #c0392b;
+        }
+        .params {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .param-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .param-group label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .param-group input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🦠 SIR Epidemic Model - ODE Solver Demo</h1>
+        
+        <div class="description">
+            <p><strong>About:</strong> This demonstrates the psolver.js module simulating an SIR (Susceptible-Infected-Recovered) epidemic model using Petri nets. The model shows how a disease spreads through a population.</p>
+        </div>
+
+        <h2>Parameters</h2>
+        <div class="params">
+            <div class="param-group">
+                <label for="s0">Initial Susceptible (S₀):</label>
+                <input type="number" id="s0" value="990" min="0" max="1000">
+            </div>
+            <div class="param-group">
+                <label for="i0">Initial Infected (I₀):</label>
+                <input type="number" id="i0" value="10" min="0" max="1000">
+            </div>
+            <div class="param-group">
+                <label for="beta">Infection Rate (β):</label>
+                <input type="number" id="beta" value="0.0005" step="0.0001" min="0" max="1">
+            </div>
+            <div class="param-group">
+                <label for="gamma">Recovery Rate (γ):</label>
+                <input type="number" id="gamma" value="0.1" step="0.01" min="0" max="1">
+            </div>
+        </div>
+
+        <button onclick="runSimulation()">▶ Run Simulation</button>
+
+        <div id="plotContainer" class="plot-container" style="display: none;"></div>
+
+        <h2>Model Description</h2>
+        <p>The SIR model divides the population into three compartments:</p>
+        <ul>
+            <li><strong>S (Susceptible):</strong> People who can catch the disease</li>
+            <li><strong>I (Infected):</strong> People who have the disease and can spread it</li>
+            <li><strong>R (Recovered):</strong> People who recovered and gained immunity</li>
+        </ul>
+        <p><strong>Transitions:</strong></p>
+        <ul>
+            <li><strong>Infection:</strong> S + I → I + I (rate: β × S × I)</li>
+            <li><strong>Recovery:</strong> I → R (rate: γ × I)</li>
+        </ul>
+    </div>
+
+    <script type="module">
+        import { fromJSON, setState, setRates, ODEProblem, solve, Tsit5, SVGPlotter } from '../psolver.js';
+
+        window.runSimulation = function() {
+            try {
+                // Get parameters
+                const s0 = parseInt(document.getElementById('s0').value);
+                const i0 = parseInt(document.getElementById('i0').value);
+                const beta = parseFloat(document.getElementById('beta').value);
+                const gamma = parseFloat(document.getElementById('gamma').value);
+
+                // Create SIR model
+                const sirData = {
+                    "@context": "https://pflow.xyz/schema",
+                    "@type": "PetriNet",
+                    "@version": "1.1",
+                    "places": {
+                        "S": { "@type": "Place", "initial": [s0], "x": 100, "y": 200 },
+                        "I": { "@type": "Place", "initial": [i0], "x": 300, "y": 200 },
+                        "R": { "@type": "Place", "initial": [0], "x": 500, "y": 200 }
+                    },
+                    "transitions": {
+                        "infection": { "@type": "Transition", "x": 200, "y": 200 },
+                        "recovery": { "@type": "Transition", "x": 400, "y": 200 }
+                    },
+                    "arcs": [
+                        // Infection: S + I -> 2I (S decreases, I increases)
+                        { "@type": "Arrow", "source": "S", "target": "infection", "weight": [1] },
+                        { "@type": "Arrow", "source": "I", "target": "infection", "weight": [1] },
+                        { "@type": "Arrow", "source": "infection", "target": "I", "weight": [2] },
+                        // Recovery: I -> R
+                        { "@type": "Arrow", "source": "I", "target": "recovery", "weight": [1] },
+                        { "@type": "Arrow", "source": "recovery", "target": "R", "weight": [1] }
+                    ]
+                };
+
+                const net = fromJSON(sirData);
+                const initialState = setState(net);
+                const rates = setRates(net, {
+                    infection: beta,
+                    recovery: gamma
+                });
+
+                console.log('Initial state:', initialState);
+                console.log('Rates:', rates);
+
+                // Solve
+                const tspan = [0.0, 100.0];
+                const prob = new ODEProblem(net, initialState, tspan, rates);
+                const sol = solve(prob, Tsit5());
+
+                console.log('Solution computed:', sol.t.length, 'points');
+
+                // Plot
+                const svg = SVGPlotter.plotSolution(sol, ['S', 'I', 'R'], {
+                    title: 'SIR Epidemic Model',
+                    xlabel: 'Time (days)',
+                    ylabel: 'Population',
+                    width: 900,
+                    height: 500
+                });
+
+                const plotContainer = document.getElementById('plotContainer');
+                plotContainer.innerHTML = svg;
+                plotContainer.style.display = 'flex';
+
+            } catch (error) {
+                console.error('Simulation error:', error);
+                alert('Simulation failed: ' + error.message);
+            }
+        };
+    </script>
+</body>
+</html>
