@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knapsack Problem - ODE Solver Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 30px;
+        }
+        .description {
+            background: #e8f5e9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .code-block {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 15px 0;
+        }
+        .plot-container {
+            margin: 30px 0;
+            display: flex;
+            justify-content: center;
+            background: white;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .results {
+            background: #fff3cd;
+            padding: 15px;
+            border-left: 4px solid #ffc107;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .results strong {
+            color: #856404;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .info-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .info-card h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .info-card ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎒 Knapsack Problem - ODE Solver Demo</h1>
+        
+        <div class="description">
+            <p><strong>About this demo:</strong> This demonstrates the psolver.js ES module, which replicates the ODE solver functionality from the Julia notebook. It uses the Tsit5 (5th order Runge-Kutta) solver to simulate a Petri net model of the knapsack optimization problem.</p>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <h3>Problem Setup</h3>
+                <ul>
+                    <li><strong>Capacity:</strong> 15 units</li>
+                    <li><strong>Items:</strong> 4 items with different weights and values</li>
+                    <li><strong>Goal:</strong> Maximize value within capacity constraint</li>
+                </ul>
+            </div>
+            <div class="info-card">
+                <h3>Technical Details</h3>
+                <ul>
+                    <li><strong>Solver:</strong> Tsit5 (adaptive RK)</li>
+                    <li><strong>Format:</strong> JSON-LD compatible</li>
+                    <li><strong>Module:</strong> Pure ES6 JavaScript</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>Petri Net Model</h2>
+        <div class="code-block">
+            <strong>Items:</strong><br>
+            • Item 0: weight=2, value=10<br>
+            • Item 1: weight=4, value=10<br>
+            • Item 2: weight=6, value=12<br>
+            • Item 3: weight=9, value=18<br>
+        </div>
+
+        <button onclick="runSimulation()">▶ Run Simulation</button>
+        <button onclick="resetSimulation()">🔄 Reset</button>
+
+        <div id="results" class="results" style="display: none;">
+            <h3>Simulation Results</h3>
+            <div id="resultsContent"></div>
+        </div>
+
+        <div id="plotContainer" class="plot-container" style="display: none;">
+        </div>
+
+        <h2>JSON-LD Model Definition</h2>
+        <details>
+            <summary style="cursor: pointer; padding: 10px; background: #e9ecef; border-radius: 5px; margin: 10px 0;">
+                <strong>Click to view the full Petri net model in JSON-LD format</strong>
+            </summary>
+            <div class="code-block" style="max-height: 400px; overflow-y: auto;">
+                <pre id="jsonDisplay"></pre>
+            </div>
+        </details>
+
+        <h2>How it Works</h2>
+        <div class="info-card">
+            <ol>
+                <li><strong>Model Definition:</strong> The Petri net is defined in JSON-LD format, compatible with pflow.xyz schema</li>
+                <li><strong>ODE Conversion:</strong> The Petri net structure is converted to a system of ODEs using mass-action kinetics</li>
+                <li><strong>Numerical Solution:</strong> The Tsit5 solver (5th order Runge-Kutta with adaptive stepping) integrates the ODEs</li>
+                <li><strong>Visualization:</strong> Results are plotted using the built-in SVG plotter</li>
+            </ol>
+        </div>
+
+        <h2>Code Example</h2>
+        <div class="code-block">
+<pre>import { fromJSON, setState, setRates, ODEProblem, solve, Tsit5, SVGPlotter } from './psolver.js';
+
+// Load model from JSON-LD
+const net = fromJSON(knapsackData);
+
+// Set initial conditions and parameters
+const initialState = setState(net);
+const rates = setRates(net);
+
+// Create and solve ODE problem
+const prob = new ODEProblem(net, initialState, [0.0, 5.0], rates);
+const sol = solve(prob, Tsit5());
+
+// Plot results
+const svg = SVGPlotter.plotSolution(sol, ['value'], {
+    title: 'Knapsack Simulation',
+    xlabel: 'Time',
+    ylabel: 'Tokens'
+});</pre>
+        </div>
+    </div>
+
+    <script type="module">
+        import { fromJSON, setState, setRates, ODEProblem, solve, Tsit5, SVGPlotter } from '../psolver.js';
+
+        // Knapsack problem data (from the Julia notebook)
+        const knapsackData = {
+            "@context": "https://pflow.xyz/schema",
+            "@type": "PetriNet",
+            "@version": "1.1",
+            "places": {
+                "item0": { "@type": "Place", "initial": [1], "x": 351, "y": 140 },
+                "item1": { "@type": "Place", "initial": [1], "x": 353, "y": 265 },
+                "item2": { "@type": "Place", "initial": [1], "x": 351, "y": 417 },
+                "item3": { "@type": "Place", "initial": [1], "x": 350, "y": 543 },
+                "weight": { "@type": "Place", "x": 880, "y": 320 },
+                "value": { "@type": "Place", "x": 765, "y": 145 },
+                "capacity": { "@type": "Place", "initial": [15], "x": 730, "y": 541 }
+            },
+            "transitions": {
+                "txn0": { "@type": "Transition", "x": 465, "y": 139 },
+                "txn1": { "@type": "Transition", "x": 466, "y": 264 },
+                "txn2": { "@type": "Transition", "x": 462, "y": 418 },
+                "txn3": { "@type": "Transition", "x": 464, "y": 542 }
+            },
+            "arcs": [
+                { "@type": "Arrow", "source": "txn0", "target": "weight", "weight": [2], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "txn0", "target": "value", "weight": [10], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "txn1", "target": "weight", "weight": [4], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "item0", "target": "txn0", "weight": [1], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "txn1", "target": "value", "weight": [10], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "item1", "target": "txn1", "weight": [1], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "item2", "target": "txn2", "weight": [1], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "item3", "target": "txn3", "weight": [1], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "txn2", "target": "weight", "weight": [6], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "txn2", "target": "value", "weight": [12], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "txn3", "target": "value", "weight": [18], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "txn3", "target": "weight", "weight": [9], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "capacity", "target": "txn0", "weight": [2], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "capacity", "target": "txn1", "weight": [4], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "capacity", "target": "txn2", "weight": [6], "inhibitTransition": false },
+                { "@type": "Arrow", "source": "capacity", "target": "txn3", "weight": [9], "inhibitTransition": false }
+            ]
+        };
+
+        // Make functions available globally
+        window.runSimulation = function() {
+            try {
+                console.log('Starting simulation...');
+                
+                // Parse the Petri net
+                const net = fromJSON(knapsackData);
+                console.log('Petri net loaded:', net);
+                
+                // Set initial state and rates
+                const initialState = setState(net);
+                const rates = setRates(net);
+                console.log('Initial state:', initialState);
+                console.log('Rates:', rates);
+                
+                // Create ODE problem
+                const tspan = [0.0, 5.0];
+                const prob = new ODEProblem(net, initialState, tspan, rates);
+                console.log('ODE problem created');
+                
+                // Solve using Tsit5
+                const sol = solve(prob, Tsit5());
+                console.log('Solution computed:', sol.t.length, 'time points');
+                
+                // Get final value
+                const finalState = sol.getFinalState();
+                const finalValue = finalState.value;
+                
+                // Display results
+                const resultsDiv = document.getElementById('results');
+                const resultsContent = document.getElementById('resultsContent');
+                resultsContent.innerHTML = `
+                    <p><strong>Final Value:</strong> ${finalValue.toFixed(3)}</p>
+                    <p><strong>Time Points:</strong> ${sol.t.length}</p>
+                    <p><strong>Integration Time:</strong> ${sol.t[sol.t.length - 1].toFixed(2)} time units</p>
+                    <p><strong>Final State:</strong></p>
+                    <ul>
+                        ${Object.entries(finalState).map(([key, val]) => `<li>${key}: ${val.toFixed(3)}</li>`).join('')}
+                    </ul>
+                `;
+                resultsDiv.style.display = 'block';
+                
+                // Generate plot
+                const svg = SVGPlotter.plotSolution(sol, ['value'], {
+                    title: 'Knapsack Simulation - Value over Time',
+                    xlabel: 'Time',
+                    ylabel: 'Value (tokens)',
+                    width: 800,
+                    height: 400
+                });
+                
+                const plotContainer = document.getElementById('plotContainer');
+                plotContainer.innerHTML = svg;
+                plotContainer.style.display = 'flex';
+                
+                console.log('Simulation complete!');
+            } catch (error) {
+                console.error('Simulation error:', error);
+                alert('Simulation failed: ' + error.message);
+            }
+        };
+
+        window.resetSimulation = function() {
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('plotContainer').style.display = 'none';
+        };
+
+        // Display JSON model
+        document.getElementById('jsonDisplay').textContent = JSON.stringify(knapsackData, null, 2);
+    </script>
+</body>
+</html>
