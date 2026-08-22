@@ -1,5 +1,5 @@
 using Test
-using Petri
+using AlgebraicPetri
 using pflow: Pflow, StateMachine, place!, arc!, guard!, transition!, to_json, to_svg, to_html, to_model, set_state, set_rates, transform!
 
 # Define a simple Petri net model to solve a knapsack problem
@@ -75,7 +75,9 @@ end
             @test state[:capacity] == 15
 
             petri = to_model(m)
-            @test isa(petri, Petri.Model)
+            @test isa(petri, LabelledPetriNet)
+            @test ns(petri) == length(m.places)
+            @test nt(petri) == length(m.transitions)
 
             # REVIEW: copy and paste json to pflow.xyz/editor to simulate network
             json_data = to_json(m)
@@ -90,7 +92,7 @@ end
             html_data = to_html(m)
             # test it starts with <!DOCTYPE html>
             @test startswith(html_data, "<!DOCTYPE html>")
-            # REVIEW: see example.ipynb in this repo to see how to use Petri.Model
+            # See test_algebraic.jl for composition and ODE via AlgebraicPetri
             # with OrdinaryDiffEq and Plots to simulate and analyze this model
         end
 
@@ -113,3 +115,4 @@ end
 
 end
 
+include("test_algebraic.jl")

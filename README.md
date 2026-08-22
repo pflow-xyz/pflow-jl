@@ -1,10 +1,10 @@
 # PFlow-jl
 
-Pflow provides a wrapper to build out Petri-net models for Petri.jl with support for colored Petri nets and JSON-LD output format.
+Pflow provides a builder for Petri-net models with colored tokens and JSON-LD output, and a bridge to [AlgebraicPetri.jl](https://github.com/AlgebraicJulia/AlgebraicPetri.jl) for categorical composition (open nets, pushouts) and mass-action ODEs.
 
 This wrapper makes it easier to compose Petri-nets with code, which allows faster iteration and more complex design.
 
-See [Petri.jl](https://github.com/AlgebraicJulia/Petri.jl) for more details about model analysis.
+`to_model` returns an AlgebraicPetri `LabelledPetriNet` (it returned a `Petri.Model` before v0.2; Petri.jl pins Catlab ≤ 0.14 and cannot coexist with AlgebraicPetri).
 
 ## Status 
 
@@ -13,13 +13,15 @@ Beta - works but visualization needs polish
 ## Features
 - Simplifies the composition of Petri-net models
 - **NEW: Parse JSON-LD format to construct Pflow models with `from_json()`**
-- **NEW: Merge multiple models together with `merge()` or `+` operator**
+- Disjoint union of models with `merge()` / `+` (the **coproduct** — colliding labels are renamed, nothing is shared)
+- **NEW: Compose models by gluing along shared boundary places with `glue()` (the **pushout**, via AlgebraicPetri's `oapply`)**
+- **NEW: `open_net`, `incidence_matrix`, `is_p_invariant`, `is_event_graph`, `to_ode_problem`; contextual (read/inhibitor) arcs raise `ContextualArcError` instead of being silently consumed**
 - **NEW: Support for colored Petri nets with array-based token representations**
 - **NEW: JSON-LD compatible output format matching pflow-xyz ecosystem**
 - **NEW: Enhanced SVG output with CSS styling matching pflow-xyz**
 - Enhances SVG output for visualization in IJulia / IPython Notebooks
 - Pflow models convert to html, svg, json
-- Export to Petri.jl Model for analysis (colored nets automatically sum to token counts)
+- Export to AlgebraicPetri `LabelledPetriNet` for analysis (colored nets automatically sum to token counts)
 - Compatible with [pflow.xyz/editor](https://pflow.xyz/editor)
 
 ## What's New
@@ -32,8 +34,46 @@ model = from_json(json_str)
 ```
 Supports all pflow.xyz JSON-LD fields including places, transitions, arcs, token colors, and inhibitor arcs.
 
-### Model Merging
-Combine multiple Pflow models into one:
+### Composition: coproduct vs pushout
+`merge`/`+` is the **coproduct**: a disjoint union in which colliding labels are
+renamed (`b` → `b_1`). Nothing is shared, so nothing is constrained — two
+payment channels that both mention Bob's balance end up with two Bobs.
+
+`glue` is the **pushout**: boundary places with the same port name become one
+place. That is what composing channels *means*, and it is the operation that
+can remove behaviour (a pushout identifies; a coproduct never does):
+
+```julia
+using pflow, AlgebraicPetri
+
+ch(x, y) = begin                       # one settlement channel x -> y
+    net = Pflow()
+    place!(net, x; initial=100); place!(net, y; initial=100)
+    place!(net, "pending_$x$y"; initial=0)
+    transition!(net, "send_$x$y"); transition!(net, "settle_$x$y")
+    arc!(net; source=x, target="send_$x$y"); arc!(net; source="send_$x$y", target="pending_$x$y")
+    arc!(net; source="pending_$x$y", target="settle_$x$y"); arc!(net; source="settle_$x$y", target=y)
+    net
+end
+
+parts = [:ch_ab => ch("a","b"), :ch_bc => ch("b","c"), :ch_ca => ch("c","a")]
+ports = Dict(:ch_ab => ["a","b"], :ch_bc => ["b","c"], :ch_ca => ["c","a"])
+
+cycle = glue(parts, ports)             # LabelledPetriNet: 6 places, 6 transitions
+is_event_graph(cycle)                  # true  — one producer and one consumer per place
+is_p_invariant(cycle, ones(Int, 6))    # true  — a + b + c + p_ab + p_bc + p_ca = const
+from_labelled_petri_net(cycle)         # back to a Pflow for JSON-LD / the editor
+
+parts[1][2] + parts[2][2] + parts[3][2] # coproduct: 9 places, with b_1 and c_1
+```
+
+`to_ode_problem(net, tspan; u0, rates)` wraps AlgebraicPetri's `vectorfield`.
+Note that AlgebraicPetri uses chemical mass action (a weight-`w` input
+contributes `M^w`), which differs from go-pflow's `flux = k·∏M` with weight
+scaling consumption only; for unit-weight nets they agree.
+
+### Model Merging (coproduct)
+Combine multiple Pflow models into one disjoint union:
 ```julia
 # Using merge function
 combined = merge(model1, model2)
@@ -75,8 +115,11 @@ using Pkg
 Pkg.add(PackageSpec(url="https://github.com/pflow-xyz/pflow-jl.git"))
 ```
 
-#### Known Issue with Julia 1.12
-There is a compatibility issue with the Petri.jl dependency and Julia 1.12. After installation, you may need to apply a workaround. See [WORKAROUND.md](WORKAROUND.md) for details.
+#### Version pins
+AlgebraicPetri 0.10 / Catlab 0.17 fail to precompile on Julia 1.12 (an ambiguous
+`collect` export). The project therefore pins AlgebraicPetri 0.9.2 with Catlab
+0.16, which loads cleanly on Julia 1.11 and 1.12. Petri.jl is no longer a
+dependency.
 
 ## Usage
 Here is a basic example of how to use PFlow.jl to define a simple Petri net model for solving a knapsack problem:
@@ -146,21 +189,19 @@ display(HTML(to_html(m))) # render the model
 #
 # *** Convert to ODE problem, solve and Graph ***
 #
-using Plots
-using Petri
-using LabelledArrays
-using Plots
+using AlgebraicPetri
 using OrdinaryDiffEq
+using Plots
 
-# Convert the model to Petri.Model
+# Convert the model to an AlgebraicPetri LabelledPetriNet
 petri_net = to_model(m)
 
 time_max = 5.0
 tspan = (0.0, time_max)
 
-# convert to ODE problem
-prob = ODEProblem(petri_net, initial_state, tspan, rates)
-# create a solution
+rates = set_rates(m)
+initial_state = set_state(m)
+prob = to_ode_problem(m, tspan; u0=initial_state, rates=rates)   # wraps vectorfield(petri_net)
 sol = solve(prob, Tsit5())
 
 #graph 
