@@ -223,3 +223,4 @@ function to_ode_problem(net::Pflow, tspan; u0 = set_state(net), rates = set_rate
     p = LVector(; (t => Float64(rates[t]) for t in tnames(lpn))...)
     Main.ODEProblem(vectorfield(lpn), u, tspan, p)
 end
+include("settle.jl")
