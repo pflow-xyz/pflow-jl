@@ -118,3 +118,4 @@ end
 include("test_algebraic.jl")
 include("test_netting.jl")
 include("test_closure.jl")
+include("test_ssa.jl")

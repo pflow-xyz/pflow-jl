@@ -853,5 +853,6 @@ end
 Base.:+(m1::Pflow, m2::Pflow) = merge(m1, m2)
 
 include("algebraic.jl")
+include("ssa.jl")
 
 end # module pflow

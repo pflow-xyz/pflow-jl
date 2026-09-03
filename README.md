@@ -79,6 +79,14 @@ which equals the ODE's `M^w` only for unit weights; `scale_rates=false` (the
 default) shares the ODE's rate constants unchanged, `scale_rates=true` also
 divides each by `w!`. Load `JumpProcesses` and solve with `SSAStepper()`.
 
+`simulate_ssa(ssa_model(net; place_order, transition_order, rates); horizon,
+samples, realizations, seed::UInt64)` is the **portable** Gillespie direct
+method (`src/ssa.jl`): its own SplitMix64-seeded xoshiro256** stream and an
+explicitly ported fdlibm `log`, so the same seed yields bit-identical sample
+paths and ensemble statistics in go-pflow, pflow-rs, pflow-xyz and here
+(goldens in `test/testdata/ssa/`). `to_jump_problem` remains the SciML bridge
+and is not byte-exact.
+
 ### Model Merging (coproduct)
 Combine multiple Pflow models into one disjoint union:
 ```julia
