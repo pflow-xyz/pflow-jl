@@ -15,7 +15,7 @@ Beta - works but visualization needs polish
 - **NEW: Parse JSON-LD format to construct Pflow models with `from_json()`**
 - Disjoint union of models with `merge()` / `+` (the **coproduct** — colliding labels are renamed, nothing is shared)
 - **NEW: Compose models by gluing along shared boundary places with `glue()` (the **pushout**, via AlgebraicPetri's `oapply`)**
-- **NEW: `open_net`, `incidence_matrix`, `is_p_invariant`, `is_event_graph`, `to_ode_problem`; contextual (read/inhibitor) arcs raise `ContextualArcError` instead of being silently consumed**
+- **NEW: `open_net`, `incidence_matrix`, `is_p_invariant`, `is_event_graph`, `to_ode_problem`, `to_jump_problem`; contextual (read/inhibitor) arcs raise `ContextualArcError` instead of being silently consumed**
 - **NEW: Support for colored Petri nets with array-based token representations**
 - **NEW: JSON-LD compatible output format matching pflow-xyz ecosystem**
 - **NEW: Enhanced SVG output with CSS styling matching pflow-xyz**
@@ -71,6 +71,13 @@ parts[1][2] + parts[2][2] + parts[3][2] # coproduct: 9 places, with b_1 and c_1
 Note that AlgebraicPetri uses chemical mass action (a weight-`w` input
 contributes `M^w`), which differs from go-pflow's `flux = k·∏M` with weight
 scaling consumption only; for unit-weight nets they agree.
+
+`to_jump_problem(net, tspan; u0, rates)` is the Gillespie counterpart: a
+`JumpProcesses.JumpProblem` (`MassActionJump` over the same stoichiometry,
+integer marking). Its propensity is the falling-factorial mass-action law,
+which equals the ODE's `M^w` only for unit weights; `scale_rates=false` (the
+default) shares the ODE's rate constants unchanged, `scale_rates=true` also
+divides each by `w!`. Load `JumpProcesses` and solve with `SSAStepper()`.
 
 ### Model Merging (coproduct)
 Combine multiple Pflow models into one disjoint union:
@@ -202,6 +209,7 @@ tspan = (0.0, time_max)
 rates = set_rates(m)
 initial_state = set_state(m)
 prob = to_ode_problem(m, tspan; u0=initial_state, rates=rates)   # wraps vectorfield(petri_net)
+# jp = to_jump_problem(m, tspan; u0=initial_state, rates=rates)  # Gillespie: solve(jp, SSAStepper())
 sol = solve(prob, Tsit5())
 
 #graph 

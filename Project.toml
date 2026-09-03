@@ -20,12 +20,15 @@ Accessors = "0.1.39"
 AlgebraicPetri = "0.9.2, 0.10"
 Catlab = "0.16, 0.17"
 IJulia = "1.32.1"
+JumpProcesses = "9"
 OrdinaryDiffEq = "6.103.0"
 Plots = "1.41.1"
 
 [extras]
+JumpProcesses = "ccbc3e58-028d-4f4c-8cd5-9ae44345cda5"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "Random"]
+test = ["Test", "Random", "JumpProcesses", "Statistics"]

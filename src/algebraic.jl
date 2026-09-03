@@ -19,7 +19,7 @@ using Catlab.Programs.RelationalPrograms: parse_relation_diagram
 
 export to_labelled_petri_net, from_labelled_petri_net, open_net, glue,
        incidence_matrix, is_p_invariant, is_event_graph, to_ode_problem,
-       ContextualArcError
+       to_jump_problem, ContextualArcError
 
 """
 Raised when a net with read or inhibitor arcs is converted to a formalism
@@ -222,5 +222,39 @@ function to_ode_problem(net::Pflow, tspan; u0 = set_state(net), rates = set_rate
     u = LVector(; (s => Float64(u0[s]) for s in snames(lpn))...)
     p = LVector(; (t => Float64(rates[t]) for t in tnames(lpn))...)
     Main.ODEProblem(vectorfield(lpn), u, tspan, p)
+end
+
+"""
+    to_jump_problem(net::Pflow, tspan; u0=set_state(net), rates=set_rates(net),
+                    aggregator=Main.Direct(), scale_rates=false, kw...)
+
+Gillespie counterpart of `to_ode_problem`. Requires `JumpProcesses` to be
+loaded by the caller (resolved via `Main`, like `ODEProblem`). State is
+integer counts. The propensity is JumpProcesses' mass-action law, a falling
+factorial `k * prod_j u_j (u_j - 1) ... (u_j - w_j + 1)`, which coincides with
+the ODE's `k * prod(u^w)` only for unit weights. `scale_rates=false` (the
+default) shares the ODE's rate constants `k` unchanged, so on a unit-weight
+net the jump ensemble mean converges to the ODE (the G3 relationship);
+`scale_rates=true` additionally divides each `k` by `prod(w_j!)`, the
+combinatorial convention. The flag is forwarded to `JumpProblem`, which is
+where JumpProcesses applies it when `param_idxs` are given.
+"""
+function to_jump_problem(net::Pflow, tspan; u0 = set_state(net), rates = set_rates(net),
+                         aggregator = Main.Direct(), scale_rates = false, kw...)
+    lpn = to_labelled_petri_net(net; kw...)
+    tm  = TransitionMatrices(lpn)
+    ns_, nt_ = ns(lpn), nt(lpn)
+    reactant_stoich = Vector{Vector{Pair{Int,Int}}}(undef, nt_)
+    net_stoich      = Vector{Vector{Pair{Int,Int}}}(undef, nt_)
+    for i in 1:nt_
+        r = [j => Int(tm.input[i, j]) for j in 1:ns_ if tm.input[i, j] > 0]
+        reactant_stoich[i] = isempty(r) ? [0 => 1] : r          # source transition sentinel
+        net_stoich[i] = [j => Int(tm.output[i, j] - tm.input[i, j])
+                         for j in 1:ns_ if tm.output[i, j] != tm.input[i, j]]
+    end
+    u = LVector(; (s => Int(u0[s]) for s in snames(lpn))...)    # InexactError on non-integer marking, by design
+    p = [Float64(rates[t]) for t in tnames(lpn)]
+    maj = Main.MassActionJump(reactant_stoich, net_stoich; param_idxs = 1:nt_, scale_rates)
+    Main.JumpProblem(Main.DiscreteProblem(u, tspan, p), aggregator, maj; scale_rates)
 end
 include("settle.jl")

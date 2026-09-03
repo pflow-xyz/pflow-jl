@@ -2,6 +2,9 @@ using Test
 using pflow
 using AlgebraicPetri
 using OrdinaryDiffEq
+using JumpProcesses
+using Random
+using Statistics: mean
 
 # One settlement channel x -> y: send_xy debits x into pending_xy, settle_xy
 # credits y.  Boundary places are x and y; pending_xy is internal.
@@ -95,5 +98,49 @@ end
         final = sol.u[end]
         @test sum(final) ≈ 100 atol = 1e-6          # conservation
         @test final[2] > 99                          # everything settled into b
+    end
+
+    @testset "to_jump_problem" begin
+        ch = channel("a", "b")
+        u0 = set_state(ch, Dict("a" => 100, "b" => 0, "pending_ab" => 0))
+        rates = set_rates(ch, (:send_ab => 1.0, :settle_ab => 1.0))
+        jp = to_jump_problem(ch, (0.0, 20.0); u0, rates)
+        Random.seed!(11)
+        sol = solve(jp, SSAStepper())
+        @test all(sum(u) == 100 for u in sol.u)          # integer conservation, every step
+        @test sol.u[end][:b] == 100                       # everything settled by t = 20
+        # LLN vs the ODE (G3 in Julia): 200 realizations, compare means at t = 1, 2, 3
+        op = to_ode_problem(ch, (0.0, 20.0); u0, rates)
+        os = solve(op, Tsit5())
+        for t in (1.0, 2.0, 3.0)
+            m = mean(solve(to_jump_problem(ch, (0.0, t); u0, rates), SSAStepper(); seed = k).u[end][:a] for k in 1:200)
+            @test abs(m - os(t)[:a]) <= 2.0               # a(t) ~ Binomial(100, e^-t): SE <= 0.36
+        end
+    end
+
+    @testset "to_jump_problem scale_rates on a weight-2 arc" begin
+        # scale_rates is applied by JumpProblem, not MassActionJump, when
+        # param_idxs are given; it must be forwarded or the flag is inert.
+        d = Pflow()
+        place!(d, "a"; initial = 20)
+        place!(d, "b")
+        transition!(d, "dimer")
+        arc!(d; source = "a", target = "dimer", weight = 2)
+        arc!(d; source = "dimer", target = "b")
+        rates = set_rates(d, (:dimer => 0.05,))
+        plain  = to_jump_problem(d, (0.0, 0.5); rates)                     # default false
+        scaled = to_jump_problem(d, (0.0, 0.5); rates, scale_rates = true)
+        @test plain.massaction_jump.scaled_rates == [0.05]                 # k unchanged
+        @test scaled.massaction_jump.scaled_rates == [0.025]               # k / 2!
+        # falling-factorial propensity with the unscaled k: 2A -> B at a0 = 20
+        # keeps a + 2b conserved and the jump mean sits near the ODE's a(0.5).
+        sols = [solve(to_jump_problem(d, (0.0, 0.5); rates), SSAStepper(); seed = k) for k in 1:500]
+        @test all(u[:a] + 2u[:b] == 20 for s in sols for u in s.u)
+        m = mean(s.u[end][:a] for s in sols)
+        os = solve(to_ode_problem(d, (0.0, 0.5); rates), Tsit5())
+        @test abs(m - os(0.5)[:a]) <= 1.0
+        # and the scaled convention is measurably slower
+        ms = mean(solve(scaled, SSAStepper(); seed = k).u[end][:a] for k in 1:500)
+        @test ms > m + 1.0
     end
 end
