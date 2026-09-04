@@ -14,6 +14,9 @@ export place!, transition!, arc!, guard!
 # Export conversion functions
 export to_json, from_json, to_svg, to_html, to_model, to_state, set_state, set_rates, set_state!, set_rates!
 
+# Export CID computation (cid.jl)
+export compute_cid
+
 # Export state machine functions
 export transform!
 
@@ -267,23 +270,15 @@ function to_json(net::Pflow)::String
         push!(arcs_arr, arc_obj)
     end
     
-    # Create the data structure first without @id to compute hash
-    data = Dict{String, Any}(
-        "places" => places_dict,
-        "transitions" => transitions_dict,
-        "arcs" => arcs_arr,
-        "token" => net.token
-    )
-    
-    # Generate a content identifier (CID) from the JSON data
-    data_json = JSON.json(data)
-    hash_bytes = sha256(data_json)
-    cid = "z" * bytes2hex(hash_bytes[1:20])  # Use first 20 bytes for shorter ID
-    
-    # Add JSON-LD fields
+    # The full document, sans @id: CIDv1(dag-json, sha2-256, base58btc) over
+    # its @id-stripped URDNA2015-canonicalized N-Quads (compute_cid, cid.jl)
+    # — the same algorithm go-pflow (internal/seal/seal.go) and pflow-xyz
+    # (public/seal-cid.mjs) use, verified byte-for-byte against go-pflow's
+    # canonical N-Quads output (test/test_cid.jl). @id is self-referential —
+    # it equals the CID being computed — so it is excluded from its own
+    # preimage; compute_cid does this stripping itself.
     result = Dict{String, Any}(
         "@context" => "https://pflow.xyz/schema",
-        "@id" => cid,
         "@type" => "PetriNet",
         "@version" => "1.1",
         "places" => places_dict,
@@ -291,7 +286,9 @@ function to_json(net::Pflow)::String
         "arcs" => arcs_arr,
         "token" => net.token
     )
-    
+    cid, _ = compute_cid(result)
+    result["@id"] = cid
+
     JSON.json(result)
 end
 
@@ -854,5 +851,7 @@ Base.:+(m1::Pflow, m2::Pflow) = merge(m1, m2)
 
 include("algebraic.jl")
 include("ssa.jl")
+include("urdna2015.jl")
+include("cid.jl")
 
 end # module pflow
