@@ -87,15 +87,33 @@ paths and ensemble statistics in go-pflow, pflow-rs, pflow-xyz and here
 (goldens in `test/testdata/ssa/`). `to_jump_problem` remains the SciML bridge
 and is not byte-exact.
 
-**Which one for which question**: `to_ode_problem` has no firing instant, so
-it cannot express a read arc, an inhibitor, a reached capacity or a guard —
-go-pflow's `Forecast` refuses such a model outright rather than silently
-assume it away, and `to_ode_problem` inherits the same gap even though it
-doesn't refuse explicitly. Use `simulate_ssa` (byte-exact) or
-`to_jump_problem` (SciML, not byte-exact) for those, or whenever token
-counts are small enough that variance is the answer, not noise to average
-out. Full rules and a worked example: `docs/engine-selection.md` (vendored
-from go-pflow, `scripts/docs-sync.sh check`/`sync`).
+`simulate_sde(model; horizon, samples, realizations, seed::UInt64)`
+(`src/sde.jl`) is the third leg of the Petri.jl ODEProblem/JumpProblem/
+SDEProblem trio (go-pflow ROADMAP.md G6): the chemical Langevin equation —
+continuous state via Euler-Maruyama, but with the net's own intrinsic firing
+noise rather than SSA's discrete events or `to_ode_problem`'s none at all.
+Reuses `ssa_model`/`_compile` rather than a separate model type, so any model
+`simulate_ssa` accepts also runs here. Not yet byte-exact cross-language the
+way SSA is — no `test/testdata/sde/` goldens exist — but its Gaussian sampler
+(`GaussianSampler`/`normal!`, Marsaglia polar over `plog` and the
+IEEE-754-exact `sqrt`) is checked bit-for-bit against go-pflow's own
+`stochastic/portable_test.go` `TestPortableNormalVectors` at seed 42. Refuses
+(via `diverged`/`reason`/`caveats`, same shape go-pflow's `Result` carries) a
+model with a read arc, inhibitor, or reachable capacity — none has a
+continuous analogue.
+
+**Which one for which question**: `to_ode_problem` and `simulate_sde` have no
+firing instant, so neither can express a read arc, an inhibitor, a reached
+capacity or a guard — go-pflow's `Forecast`/`SimulateSDE` refuse such a model
+outright, `simulate_sde` here does the same, and `to_ode_problem` inherits the
+same gap even though it doesn't refuse explicitly. Use `simulate_ssa`
+(byte-exact) for those, or whenever token counts are small enough that
+variance is the answer, not noise to average out; `simulate_sde` sits between
+`to_ode_problem` and `simulate_ssa` — noise, but no individual discrete
+events — for large populations where that fluctuation still matters.
+`to_jump_problem` is the SciML bridge, not byte-exact. Full rules and a
+worked example: `docs/engine-selection.md` (vendored from go-pflow,
+`scripts/docs-sync.sh check`/`sync`).
 
 ### Model Merging (coproduct)
 Combine multiple Pflow models into one disjoint union:
