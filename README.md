@@ -87,6 +87,16 @@ paths and ensemble statistics in go-pflow, pflow-rs, pflow-xyz and here
 (goldens in `test/testdata/ssa/`). `to_jump_problem` remains the SciML bridge
 and is not byte-exact.
 
+**Which one for which question**: `to_ode_problem` has no firing instant, so
+it cannot express a read arc, an inhibitor, a reached capacity or a guard —
+go-pflow's `Forecast` refuses such a model outright rather than silently
+assume it away, and `to_ode_problem` inherits the same gap even though it
+doesn't refuse explicitly. Use `simulate_ssa` (byte-exact) or
+`to_jump_problem` (SciML, not byte-exact) for those, or whenever token
+counts are small enough that variance is the answer, not noise to average
+out. Full rules and a worked example: `docs/engine-selection.md` (vendored
+from go-pflow, `scripts/docs-sync.sh check`/`sync`).
+
 ### Model Merging (coproduct)
 Combine multiple Pflow models into one disjoint union:
 ```julia
