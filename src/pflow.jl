@@ -293,9 +293,13 @@ function to_json(net::Pflow)::String
 end
 
 # JSON parses arrays as Vector{Any}; the builders want concrete element types.
-_ints(v::AbstractVector) = Int[Int(x) for x in v]
+# A `null` entry is the editor's "unbounded" (it serialises Infinity that
+# way); it becomes 0, which every engine already reads as unbounded, so a
+# mixed vector like [5, null] keeps its color alignment. go-pflow's parser
+# does the same — parity gate: test/test_editor_shape.jl.
+_ints(v::AbstractVector) = Int[isnothing(x) ? 0 : Int(x) for x in v]
 _ints(v) = v
-_floats(v::AbstractVector) = Float64[Float64(x) for x in v]
+_floats(v::AbstractVector) = Float64[isnothing(x) ? 0.0 : Float64(x) for x in v]
 _floats(v) = v
 
 function from_json(json_str::String)::Pflow
