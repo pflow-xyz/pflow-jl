@@ -1,0 +1,28 @@
+name: test
+
+on:
+  push:
+    branches: [main, algebraic-petri]
+  pull_request:
+    branches: [main, algebraic-petri]
+
+# No Bazel here, and none planned (go-pflow ROADMAP.md item 8): Julia's own
+# Pkg is the native toolchain, and nothing else in this ecosystem's Bazel
+# investment targets Julia. Pkg.test() is the documented fallback for a
+# repo that isn't getting the ecosystem-wide Bazel rollout.
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.12'
+
+      - uses: julia-actions/cache@v2
+
+      - uses: julia-actions/julia-buildpkg@v1
+
+      - uses: julia-actions/julia-runtest@v1
