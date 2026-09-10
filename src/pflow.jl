@@ -2,7 +2,6 @@ module pflow
 
 using JSON
 using LabelledArrays
-using Petri
 using Base64
 using SHA
 
@@ -14,6 +13,9 @@ export place!, transition!, arc!, guard!
 
 # Export conversion functions
 export to_json, from_json, to_svg, to_html, to_model, to_state, set_state, set_rates, set_state!, set_rates!
+
+# Export CID computation (cid.jl)
+export compute_cid
 
 # Export state machine functions
 export transform!
@@ -67,9 +69,15 @@ function StateMachine(m::Pflow)
     StateMachine(m, set_state(m), set_rates(m))
 end
 
-function to_model(sm::StateMachine)::Petri.Model
-    to_model(sm.model)
-end
+"""
+    to_model(x) -> LabelledPetriNet
+
+AlgebraicPetri model of the net (was `Petri.Model` before v0.2; Petri.jl
+pins Catlab ≤ 0.14 and cannot coexist with AlgebraicPetri).  Errors on
+contextual (read/inhibitor) arcs instead of silently consuming them — see
+`to_labelled_petri_net` for the encoding options.
+"""
+to_model(sm::StateMachine; kw...) = to_labelled_petri_net(sm.model; kw...)
 
 function set_rates!(sm::StateMachine, rates)
     sm.rates = set_rates(sm.model, rates)
@@ -216,39 +224,7 @@ function set_rates(pflow::Pflow, rates)
     return LVector(; fields...)
 end
 
-function to_model(pflow::Pflow)::Petri.Model
-    states = Symbol[]
-    transitions = Dict{Symbol, Tuple{Dict{Symbol, Number}, Dict{Symbol, Number}}}()
-
-    # Collect states from places
-    for (label, _) in pflow.places
-        push!(states, Symbol(label))
-    end
-
-    # Collect transitions
-    for (label, _) in pflow.transitions
-        input_places = Dict{Symbol, Number}()
-        output_places = Dict{Symbol, Number}()
-
-        # Find input places (arcs where the transition is the target)
-        for arc in pflow.arcs
-            if arc.target == label
-                # Sum array weights for ODE conversion (colored nets collapse to counts)
-                weight_sum = isempty(arc.weight) ? 1 : sum(arc.weight)
-                input_places[Symbol(arc.source)] = weight_sum
-            end
-            if arc.source == label
-                # Sum array weights for ODE conversion (colored nets collapse to counts)
-                weight_sum = isempty(arc.weight) ? 1 : sum(arc.weight)
-                output_places[Symbol(arc.target)] = weight_sum
-            end
-        end
-
-        transitions[Symbol(label)] = (input_places, output_places)
-    end
-
-    return Petri.Model(states, transitions)
-end
+to_model(pflow::Pflow; kw...) = to_labelled_petri_net(pflow; kw...)
 
 function to_json(net::Pflow)::String
     places_dict = Dict{String, Any}()
@@ -294,23 +270,15 @@ function to_json(net::Pflow)::String
         push!(arcs_arr, arc_obj)
     end
     
-    # Create the data structure first without @id to compute hash
-    data = Dict{String, Any}(
-        "places" => places_dict,
-        "transitions" => transitions_dict,
-        "arcs" => arcs_arr,
-        "token" => net.token
-    )
-    
-    # Generate a content identifier (CID) from the JSON data
-    data_json = JSON.json(data)
-    hash_bytes = sha256(data_json)
-    cid = "z" * bytes2hex(hash_bytes[1:20])  # Use first 20 bytes for shorter ID
-    
-    # Add JSON-LD fields
+    # The full document, sans @id: CIDv1(dag-json, sha2-256, base58btc) over
+    # its @id-stripped URDNA2015-canonicalized N-Quads (compute_cid, cid.jl)
+    # — the same algorithm go-pflow (internal/seal/seal.go) and pflow-xyz
+    # (public/seal-cid.mjs) use, verified byte-for-byte against go-pflow's
+    # canonical N-Quads output (test/test_cid.jl). @id is self-referential —
+    # it equals the CID being computed — so it is excluded from its own
+    # preimage; compute_cid does this stripping itself.
     result = Dict{String, Any}(
         "@context" => "https://pflow.xyz/schema",
-        "@id" => cid,
         "@type" => "PetriNet",
         "@version" => "1.1",
         "places" => places_dict,
@@ -318,9 +286,21 @@ function to_json(net::Pflow)::String
         "arcs" => arcs_arr,
         "token" => net.token
     )
-    
+    cid, _ = compute_cid(result)
+    result["@id"] = cid
+
     JSON.json(result)
 end
+
+# JSON parses arrays as Vector{Any}; the builders want concrete element types.
+# A `null` entry is the editor's "unbounded" (it serialises Infinity that
+# way); it becomes 0, which every engine already reads as unbounded, so a
+# mixed vector like [5, null] keeps its color alignment. go-pflow's parser
+# does the same — parity gate: test/test_editor_shape.jl.
+_ints(v::AbstractVector) = Int[isnothing(x) ? 0 : Int(x) for x in v]
+_ints(v) = v
+_floats(v::AbstractVector) = Float64[isnothing(x) ? 0.0 : Float64(x) for x in v]
+_floats(v) = v
 
 function from_json(json_str::String)::Pflow
     data = JSON.parse(json_str)
@@ -348,8 +328,8 @@ function from_json(data::Dict)::Pflow
     if haskey(data, "places")
         for (label, place_data) in data["places"]
             offset = get(place_data, "offset", 0)
-            initial = get(place_data, "initial", Int[])
-            capacity = get(place_data, "capacity", Float64[])
+            initial = _ints(get(place_data, "initial", Int[]))
+            capacity = _floats(get(place_data, "capacity", Float64[]))
             x = get(place_data, "x", 0)
             y = get(place_data, "y", 0)
             label_text = get(place_data, "label", nothing)
@@ -376,7 +356,7 @@ function from_json(data::Dict)::Pflow
         for arc_data in data["arcs"]
             source = arc_data["source"]
             target = arc_data["target"]
-            weight = get(arc_data, "weight", [1])
+            weight = _ints(get(arc_data, "weight", [1]))
             inhibit_transition = get(arc_data, "inhibitTransition", false)
             
             if inhibit_transition
@@ -872,5 +852,11 @@ end
 
 # Overload + operator for model merging
 Base.:+(m1::Pflow, m2::Pflow) = merge(m1, m2)
+
+include("algebraic.jl")
+include("ssa.jl")
+include("sde.jl")
+include("urdna2015.jl")
+include("cid.jl")
 
 end # module pflow

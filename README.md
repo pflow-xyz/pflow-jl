@@ -1,10 +1,10 @@
 # PFlow-jl
 
-Pflow provides a wrapper to build out Petri-net models for Petri.jl with support for colored Petri nets and JSON-LD output format.
+Pflow provides a builder for Petri-net models with colored tokens and JSON-LD output, and a bridge to [AlgebraicPetri.jl](https://github.com/AlgebraicJulia/AlgebraicPetri.jl) for categorical composition (open nets, pushouts) and mass-action ODEs.
 
 This wrapper makes it easier to compose Petri-nets with code, which allows faster iteration and more complex design.
 
-See [Petri.jl](https://github.com/AlgebraicJulia/Petri.jl) for more details about model analysis.
+`to_model` returns an AlgebraicPetri `LabelledPetriNet` (it returned a `Petri.Model` before v0.2; Petri.jl pins Catlab ≤ 0.14 and cannot coexist with AlgebraicPetri).
 
 ## Status 
 
@@ -13,13 +13,15 @@ Beta - works but visualization needs polish
 ## Features
 - Simplifies the composition of Petri-net models
 - **NEW: Parse JSON-LD format to construct Pflow models with `from_json()`**
-- **NEW: Merge multiple models together with `merge()` or `+` operator**
+- Disjoint union of models with `merge()` / `+` (the **coproduct** — colliding labels are renamed, nothing is shared)
+- **NEW: Compose models by gluing along shared boundary places with `glue()` (the **pushout**, via AlgebraicPetri's `oapply`)**
+- **NEW: `open_net`, `incidence_matrix`, `is_p_invariant`, `is_event_graph`, `to_ode_problem`, `to_jump_problem`; contextual (read/inhibitor) arcs raise `ContextualArcError` instead of being silently consumed**
 - **NEW: Support for colored Petri nets with array-based token representations**
 - **NEW: JSON-LD compatible output format matching pflow-xyz ecosystem**
 - **NEW: Enhanced SVG output with CSS styling matching pflow-xyz**
 - Enhances SVG output for visualization in IJulia / IPython Notebooks
 - Pflow models convert to html, svg, json
-- Export to Petri.jl Model for analysis (colored nets automatically sum to token counts)
+- Export to AlgebraicPetri `LabelledPetriNet` for analysis (colored nets automatically sum to token counts)
 - Compatible with [pflow.xyz/editor](https://pflow.xyz/editor)
 
 ## What's New
@@ -32,8 +34,89 @@ model = from_json(json_str)
 ```
 Supports all pflow.xyz JSON-LD fields including places, transitions, arcs, token colors, and inhibitor arcs.
 
-### Model Merging
-Combine multiple Pflow models into one:
+### Composition: coproduct vs pushout
+`merge`/`+` is the **coproduct**: a disjoint union in which colliding labels are
+renamed (`b` → `b_1`). Nothing is shared, so nothing is constrained — two
+payment channels that both mention Bob's balance end up with two Bobs.
+
+`glue` is the **pushout**: boundary places with the same port name become one
+place. That is what composing channels *means*, and it is the operation that
+can remove behaviour (a pushout identifies; a coproduct never does):
+
+```julia
+using pflow, AlgebraicPetri
+
+ch(x, y) = begin                       # one settlement channel x -> y
+    net = Pflow()
+    place!(net, x; initial=100); place!(net, y; initial=100)
+    place!(net, "pending_$x$y"; initial=0)
+    transition!(net, "send_$x$y"); transition!(net, "settle_$x$y")
+    arc!(net; source=x, target="send_$x$y"); arc!(net; source="send_$x$y", target="pending_$x$y")
+    arc!(net; source="pending_$x$y", target="settle_$x$y"); arc!(net; source="settle_$x$y", target=y)
+    net
+end
+
+parts = [:ch_ab => ch("a","b"), :ch_bc => ch("b","c"), :ch_ca => ch("c","a")]
+ports = Dict(:ch_ab => ["a","b"], :ch_bc => ["b","c"], :ch_ca => ["c","a"])
+
+cycle = glue(parts, ports)             # LabelledPetriNet: 6 places, 6 transitions
+is_event_graph(cycle)                  # true  — one producer and one consumer per place
+is_p_invariant(cycle, ones(Int, 6))    # true  — a + b + c + p_ab + p_bc + p_ca = const
+from_labelled_petri_net(cycle)         # back to a Pflow for JSON-LD / the editor
+
+parts[1][2] + parts[2][2] + parts[3][2] # coproduct: 9 places, with b_1 and c_1
+```
+
+`to_ode_problem(net, tspan; u0, rates)` wraps AlgebraicPetri's `vectorfield`.
+Note that AlgebraicPetri uses chemical mass action (a weight-`w` input
+contributes `M^w`), which differs from go-pflow's `flux = k·∏M` with weight
+scaling consumption only; for unit-weight nets they agree.
+
+`to_jump_problem(net, tspan; u0, rates)` is the Gillespie counterpart: a
+`JumpProcesses.JumpProblem` (`MassActionJump` over the same stoichiometry,
+integer marking). Its propensity is the falling-factorial mass-action law,
+which equals the ODE's `M^w` only for unit weights; `scale_rates=false` (the
+default) shares the ODE's rate constants unchanged, `scale_rates=true` also
+divides each by `w!`. Load `JumpProcesses` and solve with `SSAStepper()`.
+
+`simulate_ssa(ssa_model(net; place_order, transition_order, rates); horizon,
+samples, realizations, seed::UInt64)` is the **portable** Gillespie direct
+method (`src/ssa.jl`): its own SplitMix64-seeded xoshiro256** stream and an
+explicitly ported fdlibm `log`, so the same seed yields bit-identical sample
+paths and ensemble statistics in go-pflow, pflow-rs, pflow-xyz and here
+(goldens in `test/testdata/ssa/`). `to_jump_problem` remains the SciML bridge
+and is not byte-exact.
+
+`simulate_sde(model; horizon, samples, realizations, seed::UInt64)`
+(`src/sde.jl`) is the third leg of the Petri.jl ODEProblem/JumpProblem/
+SDEProblem trio (go-pflow ROADMAP.md G6): the chemical Langevin equation —
+continuous state via Euler-Maruyama, but with the net's own intrinsic firing
+noise rather than SSA's discrete events or `to_ode_problem`'s none at all.
+Reuses `ssa_model`/`_compile` rather than a separate model type, so any model
+`simulate_ssa` accepts also runs here. Not yet byte-exact cross-language the
+way SSA is — no `test/testdata/sde/` goldens exist — but its Gaussian sampler
+(`GaussianSampler`/`normal!`, Marsaglia polar over `plog` and the
+IEEE-754-exact `sqrt`) is checked bit-for-bit against go-pflow's own
+`stochastic/portable_test.go` `TestPortableNormalVectors` at seed 42. Refuses
+(via `diverged`/`reason`/`caveats`, same shape go-pflow's `Result` carries) a
+model with a read arc, inhibitor, or reachable capacity — none has a
+continuous analogue.
+
+**Which one for which question**: `to_ode_problem` and `simulate_sde` have no
+firing instant, so neither can express a read arc, an inhibitor, a reached
+capacity or a guard — go-pflow's `Forecast`/`SimulateSDE` refuse such a model
+outright, `simulate_sde` here does the same, and `to_ode_problem` inherits the
+same gap even though it doesn't refuse explicitly. Use `simulate_ssa`
+(byte-exact) for those, or whenever token counts are small enough that
+variance is the answer, not noise to average out; `simulate_sde` sits between
+`to_ode_problem` and `simulate_ssa` — noise, but no individual discrete
+events — for large populations where that fluctuation still matters.
+`to_jump_problem` is the SciML bridge, not byte-exact. Full rules and a
+worked example: `docs/engine-selection.md` (vendored from go-pflow,
+`scripts/docs-sync.sh check`/`sync`).
+
+### Model Merging (coproduct)
+Combine multiple Pflow models into one disjoint union:
 ```julia
 # Using merge function
 combined = merge(model1, model2)
@@ -75,8 +158,11 @@ using Pkg
 Pkg.add(PackageSpec(url="https://github.com/pflow-xyz/pflow-jl.git"))
 ```
 
-#### Known Issue with Julia 1.12
-There is a compatibility issue with the Petri.jl dependency and Julia 1.12. After installation, you may need to apply a workaround. See [WORKAROUND.md](WORKAROUND.md) for details.
+#### Version pins
+AlgebraicPetri 0.10 / Catlab 0.17 fail to precompile on Julia 1.12 (an ambiguous
+`collect` export). The project therefore pins AlgebraicPetri 0.9.2 with Catlab
+0.16, which loads cleanly on Julia 1.11 and 1.12. Petri.jl is no longer a
+dependency.
 
 ## Usage
 Here is a basic example of how to use PFlow.jl to define a simple Petri net model for solving a knapsack problem:
@@ -146,21 +232,20 @@ display(HTML(to_html(m))) # render the model
 #
 # *** Convert to ODE problem, solve and Graph ***
 #
-using Plots
-using Petri
-using LabelledArrays
-using Plots
+using AlgebraicPetri
 using OrdinaryDiffEq
+using Plots
 
-# Convert the model to Petri.Model
+# Convert the model to an AlgebraicPetri LabelledPetriNet
 petri_net = to_model(m)
 
 time_max = 5.0
 tspan = (0.0, time_max)
 
-# convert to ODE problem
-prob = ODEProblem(petri_net, initial_state, tspan, rates)
-# create a solution
+rates = set_rates(m)
+initial_state = set_state(m)
+prob = to_ode_problem(m, tspan; u0=initial_state, rates=rates)   # wraps vectorfield(petri_net)
+# jp = to_jump_problem(m, tspan; u0=initial_state, rates=rates)  # Gillespie: solve(jp, SSAStepper())
 sol = solve(prob, Tsit5())
 
 #graph 
