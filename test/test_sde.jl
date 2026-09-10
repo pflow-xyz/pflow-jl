@@ -51,6 +51,17 @@ const SDE_FIXTURES = joinpath(@__DIR__, "testdata", "ssa")   # reuse the SSA mod
         @test !isempty(res.caveats)
     end
 
+    @testset "refuses a delayed transition (§5)" begin
+        m = SsaModel(
+            [SsaPlace("a", 3, 0), SsaPlace("b", 0, 0)],
+            [SsaTransition("t", 0.0, 1.5)],
+            [SsaArc("a", "t", 1, :flow, true), SsaArc("t", "b", 1, :flow, true)],
+        )
+        res = simulate_sde(m; horizon = 1.0, samples = 2, realizations = 1, seed = UInt64(1))
+        @test res.diverged
+        @test any(occursin("delay", c) for c in res.caveats)
+    end
+
     @testset "dispatch names the chemical Langevin assumption" begin
         doc = JSON.parsefile(joinpath(SDE_FIXTURES, "chain.json"))
         model = ssa_model(doc["model"])

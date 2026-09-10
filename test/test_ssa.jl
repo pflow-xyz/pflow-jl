@@ -238,7 +238,7 @@ const SSA_FIXTURES = joinpath(@__DIR__, "testdata", "ssa")
 
     @testset "fixture parity (§4, §6.3)" begin
         files = filter(f -> endswith(f, ".json"), readdir(SSA_FIXTURES))
-        @test Set(files) == Set(["chain.json", "sir.json", "dimer.json", "coffeeshop.json", "gates.json"])
+        @test Set(files) == Set(["chain.json", "sir.json", "dimer.json", "coffeeshop.json", "gates.json", "timed.json"])
         for file in sort(files)
             @testset "$file" begin
                 doc = JSON.parsefile(joinpath(SSA_FIXTURES, file))

@@ -172,7 +172,9 @@ end
 struct SsaTransition
     id::String
     rate::Float64
+    delay::Float64         # > 0: a timed transition (§5); it has no rate
 end
+SsaTransition(id::AbstractString, rate::Real) = SsaTransition(String(id), Float64(rate), 0.0)
 
 struct SsaArc
     from::String
@@ -221,7 +223,12 @@ function ssa_model(dict::AbstractDict)
         if rate == 0
             rate = 1.0
         end
-        push!(transitions, SsaTransition(String(t["id"]), rate))
+        delay = Float64(_num(get(t, "delay", nothing), 0))
+        delay < 0 && error("ssa_model: transition $(t["id"]) has delay $delay, which is negative")
+        if delay > 0
+            rate = 0.0                 # a timer, not a race: no propensity
+        end
+        push!(transitions, SsaTransition(String(t["id"]), rate, delay))
     end
     transition_ids = Set(t.id for t in transitions)
     arcs = SsaArc[]
@@ -294,6 +301,7 @@ end
 # Compiled transition: indices into the marking vector.
 struct _CompiledTransition
     rate::Float64
+    delay::Float64                          # > 0: timed (§5)
     inputs::Vector{Tuple{Int,Int,Bool}}    # (place index, weight, kinetic)
     outputs::Vector{Tuple{Int,Int}}        # (place index, weight)
     reads::Vector{Tuple{Int,Int}}
@@ -336,7 +344,10 @@ function _compile(model::SsaModel)
                 push!(caps, (p, delta[p], place.capacity))
             end
         end
-        push!(compiled, _CompiledTransition(t.rate, inputs, outputs, reads, inhibits, caps))
+        if t.delay > 0 && isempty(inputs)
+            error("ssa: transition $(t.id) has delay $(t.delay) but no consuming input; it would restart forever in zero time")
+        end
+        push!(compiled, _CompiledTransition(t.delay > 0 ? 0.0 : t.rate, t.delay, inputs, outputs, reads, inhibits, caps))
     end
     return compiled
 end
@@ -386,6 +397,27 @@ function _gated(tr::_CompiledTransition, marking::Vector{Int})
 end
 
 # Fills `propensity` in transition order; returns a0 summed strictly left to right.
+# §5: every constraint lets a delayed transition start — consuming inputs
+# present and the non-consuming gates open. The exponential path folds the
+# input test into the propensity; a timed transition has none and asks here.
+function _enabled(tr::_CompiledTransition, marking::Vector{Int})
+    for (p, w, _) in tr.inputs
+        if marking[p] < w; return false; end
+    end
+    return _gated(tr, marking)
+end
+
+# §5: insert keeping the queue sorted by completion time, after any completion
+# already due at the same instant (FIFO among ties).
+function _schedule_pending!(queue::Vector{Tuple{Float64,Int}}, at::Float64, tr::Int)
+    i = 1
+    while i <= length(queue) && queue[i][1] <= at
+        i += 1
+    end
+    insert!(queue, i, (at, tr))
+    return queue
+end
+
 function _propensities!(propensity::Vector{Float64}, trs::Vector{_CompiledTransition}, marking::Vector{Int})
     a0 = 0.0
     for (j, tr) in enumerate(trs)
@@ -428,16 +460,61 @@ function _realization!(traj::Matrix{Float64}, trs::Vector{_CompiledTransition},
         nxt += 1
     end
     tEnd = times[S]                     # not the horizon option; they may differ by an ulp
+    # §5: delayed firings in progress, sorted by completion time. Delay-free
+    # nets never touch it, so their sample paths are exactly what they were.
+    queue = Tuple{Float64,Int}[]
+    timed = any(tr.delay > 0 for tr in trs)
     step = 0
     while step < _SSA_MAX_STEPS && t < tEnd
         step += 1
-        a0 = _propensities!(propensity, trs, marking)
-        if a0 <= 0
-            break                       # dead marking; no draw consumed
+        # 0. start every enabled delayed transition at this instant, in
+        #    declaration order, one start per pass, passes until none starts.
+        if timed
+            again = true
+            while again
+                again = false
+                for j in 1:nT
+                    tr = trs[j]
+                    if tr.delay > 0 && _enabled(tr, marking)
+                        for (p, w, _) in tr.inputs
+                            marking[p] = marking[p] - w
+                        end
+                        _schedule_pending!(queue, t + tr.delay, j)
+                        again = true
+                    end
+                end
+            end
         end
-        x1 = uniform!(g)
-        u = 1.0 - x1                    # (0, 1], exact
-        dt = (-plog(u)) / a0
+        a0 = _propensities!(propensity, trs, marking)
+        if a0 <= 0 && isempty(queue)
+            break                       # dead marking, nothing in flight; no draw consumed
+        end
+        dt = Inf                        # no draw when nothing can race
+        if a0 > 0
+            x1 = uniform!(g)
+            u = 1.0 - x1                # (0, 1], exact
+            dt = (-plog(u)) / a0
+        end
+        # a completion due before the draw pre-empts it; the draw is
+        # discarded, not deferred — the race is memoryless
+        if !isempty(queue) && queue[1][1] <= t + dt
+            at, j = queue[1]
+            t = at                      # assigned, not accumulated: same double as Go
+            while nxt <= S && times[nxt] <= t
+                for p in 1:nP
+                    traj[p, nxt] = Float64(marking[p])
+                end
+                nxt += 1
+            end
+            if t > tEnd
+                break
+            end
+            popfirst!(queue)
+            for (p, w) in trs[j].outputs
+                marking[p] = marking[p] + w
+            end
+            continue
+        end
         t = t + dt
         while nxt <= S && times[nxt] <= t
             for p in 1:nP

@@ -29,10 +29,16 @@ differences. The Julia port reproduces every one of them bit-for-bit.
 | dimer.json | 5b260cc9b3027c660d87d5a041839941f4deb1107a22728782549bc700e23341 |
 | coffeeshop.json | 2e0402f8d6e0ec32956538e480f76d6e3ec28861cb03211eb97be6a68f9f0c53 |
 | gates.json | 9a2a35ef18b5218a1afcda49f1755e47feb9942bf07254533971e1d490df7009 |
+| timed.json | 53c7140c779bc7ce9dde590f2559a345e68cb547ebff0eff2e79da0a99fc3e28 |
 
 Options per fixture: chain `{10, 11, 3, 42}`, sir `{40, 81, 8, 11}`, dimer
 `{5, 21, 4, 7}`, coffeeshop `{8, 60, 5, 42}`, gates `{20, 41, 4, 5}` (horizon,
-samples, realizations, seed).
+samples, realizations, seed); timed `{12, 25, 3, 9}`.
+
+`timed` is the sixth fixture: delayed transitions, the §5 rule written out in
+go-pflow's `stochastic/testdata/README.md` — a shared resource on a
+deterministic clock, an infinite-server clock, priority over an exponential
+rival, and a horizon that cuts firings mid-flight.
 
 `gates` is the fifth fixture, beyond the four in ssa-spec.md §4.3: it reaches
 the read-arc, inhibitor, non-kinetic input (`kinetic: false`) and capacity
