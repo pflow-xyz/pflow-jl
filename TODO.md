@@ -6,17 +6,12 @@ BACKLOG
 -------
 - [ ] fix active/disabled hilighting in svg - should we do this without calculating delta vectors ?
 - [ ] fix arc attributes to have proper boolean values set
-- [ ] add `to_jump_problem` alongside `to_ode_problem` in src/algebraic.jl —
-      AlgebraicPetri.jl (already a dep) can generate a JumpProblem/SDEProblem
-      via DifferentialEquations.jl for discrete-stochastic (Gillespie)
-      simulation of the same net; only the ODE path is wired up today.
-      Tracked ecosystem-wide as go-pflow ROADMAP.md's G4 (discrete-stochastic
-      simulation track / "Petri.jl parity") — the Go side needs to promote
-      petri-pilot's existing SSA engine first (G1-G3); this is the much
-      smaller, independent Julia-side half of the same goal.
 
 DONE
 ----
+- [x] add `to_jump_problem` alongside `to_ode_problem` in src/algebraic.jl —
+      landed as part of the AlgebraicPetri.jl merge (2026-09-03), ahead of
+      the portable Gillespie SSA engine (src/ssa.jl) this merge also brings.
 - [x] add a StateMachine to apply transformations & store rates
 - [x] fix token count missing in svg
 - [x] modify html to scale image when using to_html()
