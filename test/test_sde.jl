@@ -4,17 +4,18 @@ using pflow: SsaModel, SsaPlace, SsaTransition, SsaArc, ssa_model, simulate_ssa,
              simulate_sde, combinations, combinations_real, GaussianSampler, normal!,
              CHEMICAL_LANGEVIN_ASSUMPTION
 
-# Chemical Langevin SDE (go-pflow ROADMAP.md G6, stochastic/sde.go). Unlike
-# SSA there is no byte-exact cross-language SDE contract yet — no
-# test/testdata/sde/ goldens — so most of this file checks consistency
-# against this package's own simulate_ssa, mirroring go-pflow's
-# stochastic/sde_test.go. The one bit-exact check is normal!() against
-# go-pflow's own TestPortableNormalVectors: Go is the reference
-# implementation for this sampler, the same role it plays for wait()/uniform()
-# in ssa-spec.md.
+# Chemical Langevin SDE (go-pflow ROADMAP.md G6, stochastic/sde.go).
+# test/testdata/sde/ (the byte-exact fixture-parity testset below) closes
+# the same contract test/testdata/ssa/ already holds — the remaining tests
+# in this file check consistency against this package's own simulate_ssa,
+# mirroring go-pflow's stochastic/sde_test.go. normal!() is additionally
+# checked bit-for-bit against go-pflow's own TestPortableNormalVectors: Go
+# is the reference implementation for this sampler, the same role it plays
+# for wait()/uniform() in ssa-spec.md.
 
 bits(x::Float64) = reinterpret(UInt64, x)
 const SDE_FIXTURES = joinpath(@__DIR__, "testdata", "ssa")   # reuse the SSA models
+const SDE_GOLDENS = joinpath(@__DIR__, "testdata", "sde")
 
 @testset "Chemical Langevin SDE" begin
 
@@ -132,6 +133,48 @@ const SDE_FIXTURES = joinpath(@__DIR__, "testdata", "ssa")   # reuse the SSA mod
                 max_diff = max(max_diff, abs(sde.values[p][i] - ssa.values[p][i]))
             end
             @test max_diff <= 3.0
+        end
+    end
+
+    @testset "fixture parity (byte-exact against go-pflow's Options{Portable: true})" begin
+        files = filter(f -> endswith(f, ".json"), readdir(SDE_GOLDENS))
+        @test Set(files) == Set(["chain.json", "sir.json", "dimer.json", "gates.json", "coffeeshop.json"])
+        for file in sort(files)
+            @testset "$file" begin
+                doc = JSON.parsefile(joinpath(SDE_GOLDENS, file))
+                model = ssa_model(doc["model"])
+                o = doc["options"]
+                res = simulate_sde(model; horizon = Float64(o["horizon"]), samples = Int(o["samples"]),
+                                   realizations = Int(o["realizations"]), seed = UInt64(o["seed"]))
+
+                if get(doc, "diverged", false)
+                    @test res.diverged
+                    @test res.reason == doc["reason"]
+                    @test res.caveats == Vector{String}(doc["caveats"])
+                    continue
+                end
+
+                @test !res.diverged
+                ex = doc["expected"]
+                S = Int(o["samples"])
+                @test length(res.times) == S
+                for i in 1:S
+                    @test res.times[i] === Float64(ex["times"][i])
+                end
+                @test Set(keys(ex["series"])) == Set(res.places)
+                for (p, id) in enumerate(res.places)
+                    want_v = ex["series"][id]["values"]
+                    want_s = ex["series"][id]["stddev"]
+                    @test length(want_v) == S && length(want_s) == S
+                    mism = 0
+                    for i in 1:S
+                        res.values[p][i] === Float64(want_v[i]) || (mism += 1)
+                        res.stddev[p][i] === Float64(want_s[i]) || (mism += 1)
+                    end
+                    @test mism == 0
+                    @test res.final[p] === Float64(ex["final"][id])
+                end
+            end
         end
     end
 end

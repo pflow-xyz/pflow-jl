@@ -93,14 +93,17 @@ SDEProblem trio (go-pflow ROADMAP.md G6): the chemical Langevin equation —
 continuous state via Euler-Maruyama, but with the net's own intrinsic firing
 noise rather than SSA's discrete events or `to_ode_problem`'s none at all.
 Reuses `ssa_model`/`_compile` rather than a separate model type, so any model
-`simulate_ssa` accepts also runs here. Not yet byte-exact cross-language the
-way SSA is — no `test/testdata/sde/` goldens exist — but its Gaussian sampler
+`simulate_ssa` accepts also runs here. Byte-exact cross-language the way SSA
+is: `test/testdata/sde/` holds the same five models as `test/testdata/ssa/`,
+replayed bit-for-bit by `test/test_sde.jl` — closing the pflow-jl side of a
+contract go-pflow/pflow-rs/pflow-xyz already held. Its Gaussian sampler
 (`GaussianSampler`/`normal!`, Marsaglia polar over `plog` and the
-IEEE-754-exact `sqrt`) is checked bit-for-bit against go-pflow's own
-`stochastic/portable_test.go` `TestPortableNormalVectors` at seed 42. Refuses
-(via `diverged`/`reason`/`caveats`, same shape go-pflow's `Result` carries) a
-model with a read arc, inhibitor, or reachable capacity — none has a
-continuous analogue.
+IEEE-754-exact `sqrt`) is additionally checked bit-for-bit against go-pflow's
+own `stochastic/portable_test.go` `TestPortableNormalVectors` at seed 42.
+Refuses (via `diverged`/`reason`/`caveats`, same shape go-pflow's `Result`
+carries, matching its `Model.Gating()` wording field for field) a model with
+a read arc, inhibitor, or reachable capacity — none has a continuous
+analogue.
 
 **Which one for which question**: `to_ode_problem` and `simulate_sde` have no
 firing instant, so neither can express a read arc, an inhibitor, a reached

@@ -9,12 +9,14 @@
 # exactly as go-pflow's `Forecast`/`SimulateSDE` do: a firing instant is what
 # those need, and continuous diffusion has none.
 #
-# Not yet part of the byte-exact cross-language contract SSA has — no
-# test/testdata/sde/ goldens exist — but the Gaussian sampler is checked
-# bit-for-bit against go-pflow's own `stochastic/portable_test.go`
-# `TestPortableNormalVectors` (Go is the reference implementation for
-# normal(): no external SDE spec, the same role it plays for wait()/uniform()
-# in ssa-spec.md).
+# Part of the byte-exact cross-language contract the way SSA is:
+# test/testdata/sde/ holds the same five models as test/testdata/ssa/ (chain,
+# sir, dimer, gates, coffeeshop), replayed bit-for-bit by test/test_sde.jl —
+# closing the pflow-jl side of a contract go-pflow/pflow-rs/pflow-xyz already
+# held. The Gaussian sampler is additionally checked bit-for-bit against
+# go-pflow's own `stochastic/portable_test.go` `TestPortableNormalVectors`
+# (Go is the reference implementation for normal(): no external SDE spec,
+# the same role it plays for wait()/uniform() in ssa-spec.md).
 
 export SdeResult, simulate_sde, combinations_real, GaussianSampler, normal!
 export CHEMICAL_LANGEVIN_ASSUMPTION
@@ -141,22 +143,45 @@ end
 """
     _gating_reasons(model::SsaModel) -> Vector{String}
 
-Mirrors go-pflow's `Model.Gating()` at the level `_compile`'s output can see
-it: a read arc, an inhibitor, or a reachable capacity, none of which has a
-continuous analogue.
+Mirrors go-pflow's `Model.Gating()` wording field for field (arc counts, an
+`[a b c]`-style place list) at the level `_compile`'s output can see it —
+ported from pflow-rs's `sde.rs::gating_reasons` / pflow-xyz's
+`petri-sde.js::gatingReasons`, both rewritten to match go-pflow's exact
+strings so the `diverged` reason/caveats are part of the byte-exact
+`test/testdata/sde/` contract, not just its "contains" cousin.
 """
 function _gating_reasons(model::SsaModel)
     trs = _compile(model)
     reasons = String[]
-    if any(!isempty(t.reads) for t in trs)
-        push!(reasons, "a read arc has no continuous analogue")
+
+    reads = sum(length(t.reads) for t in trs)
+    inhibits = sum(length(t.inhibits) for t in trs)
+    static_arcs = sum(count(!kinetic for (_, _, kinetic) in t.inputs) for t in trs)
+
+    if reads > 0
+        push!(reasons, "$reads read arc(s) gate a firing without consuming; a continuous solver cannot test them")
     end
-    if any(!isempty(t.inhibits) for t in trs)
-        push!(reasons, "an inhibitor arc has no continuous analogue")
+    if inhibits > 0
+        push!(reasons, "$inhibits inhibitor arc(s) block a firing above a threshold; a continuous solver cannot test them")
     end
-    if any(!isempty(t.caps) for t in trs)
-        push!(reasons, "a reachable capacity is a post-firing bound, which has no continuous analogue")
+    if static_arcs > 0
+        push!(reasons, "$static_arcs non-kinetic input arc(s) gate and consume without scaling the rate; a mass-action solver has no way to omit them from the rate law")
     end
+
+    # Distinct places a capacity is declared *and* reachable on (some
+    # transition's net delta there is positive), in place-declaration order —
+    # the same set `_compile` already applied when populating each
+    # transition's `caps`.
+    caps = String[]
+    for (p, place) in enumerate(model.places)
+        if any(any(cp == p for (cp, _, _) in t.caps) for t in trs)
+            push!(caps, place.id)
+        end
+    end
+    if !isempty(caps)
+        push!(reasons, "capacity is declared on [" * join(caps, " ") * "] but is a post-firing bound, which has no continuous analogue")
+    end
+
     if any(t.delay > 0 for t in trs)
         push!(reasons, "a delay is a deterministic timer — inputs consumed at start, outputs a fixed time later — which mass action cannot express")
     end
@@ -278,7 +303,7 @@ function simulate_sde(model::SsaModel; horizon::Real, samples::Integer, realizat
 
     caveats = _gating_reasons(model)
     if !isempty(caveats)
-        reason = "this model constrains firing in ways continuous diffusion cannot express, so the SDE would silently model an unconstrained system. Use the discrete engine (simulate_ssa). Specifically: " * join(caveats, "; ")
+        reason = "this model constrains firing in ways continuous diffusion cannot express, so the SDE would silently model an unconstrained system. Use the discrete engine (Simulate). Specifically: " * join(caveats, "; ")
         return SdeResult(places, times, Vector{Float64}[], nothing, Float64[], true, reason, caveats)
     end
 
