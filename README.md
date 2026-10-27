@@ -330,3 +330,9 @@ pipeline = merge(producer, consumer)
 
 See [examples/json_and_merge_example.jl](examples/json_and_merge_example.jl) for more examples.
 ```
+
+## Contributing
+
+We don't merge outside code, so pull requests won't be merged as-is.
+Feature requests and bug reports are welcome: please open an
+[issue](https://github.com/pflow-xyz/pflow-jl/issues).
